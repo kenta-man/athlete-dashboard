@@ -1,0 +1,575 @@
+import { useState, useEffect, useMemo } from 'react'
+import {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+} from 'recharts'
+import type { GpsData, Player } from '../data/sampleData'
+import { type Period, formatPeriodLabel } from '../utils/aggregation'
+
+interface Props { data: GpsData[]; period: Period; player: Player }
+
+const CHART = {
+  grid: { stroke: '#f1f5f9', strokeDasharray: '3 3' },
+  axis: { tick: { fill: '#374151', fontSize: 11 }, axisLine: false, tickLine: false },
+  tooltip: {
+    contentStyle: { backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.07)' },
+    labelStyle: { color: '#111827', marginBottom: 4, fontWeight: 600 },
+    itemStyle: { color: '#111827' },
+    cursor: { fill: 'rgba(59,130,246,0.03)' },
+  },
+  legend: { wrapperStyle: { fontSize: 11, color: '#111827' } },
+}
+const AUTO_Y = { domain: ['auto' as const, 'auto' as const] }
+
+const ZONE_COLORS = ['#3b82f6','#10b981','#f59e0b','#f97316','#ef4444']
+
+interface KpiStats {
+  totalDistance: number; hsr: number; intensity: number
+  maxSpeed: number; ee: number; running: number; accel: number; decel: number
+}
+
+function toKpiStats(s: GpsData): KpiStats {
+  return {
+    totalDistance: s.totalDistance,
+    hsr: s.dist_20_25 + s.dist_25plus,
+    intensity: s.running > 0 ? Math.round(s.totalDistance / s.running) : 0,
+    maxSpeed: s.maxSpeed,
+    ee: s.explosiveEfforts,
+    running: s.running,
+    accel: s.accel_3ms2,
+    decel: s.decel_3ms2,
+  }
+}
+
+function avgKpiStats(data: GpsData[]): KpiStats {
+  const n = data.length
+  if (n === 0) return { totalDistance: 0, hsr: 0, intensity: 0, maxSpeed: 0, ee: 0, running: 0, accel: 0, decel: 0 }
+  return {
+    totalDistance: Math.round(data.reduce((s, d) => s + d.totalDistance, 0) / n),
+    hsr: Math.round(data.reduce((s, d) => s + d.dist_20_25 + d.dist_25plus, 0) / n),
+    intensity: Math.round(data.reduce((s, d) => s + (d.running > 0 ? d.totalDistance / d.running : 0), 0) / n),
+    maxSpeed: +(data.reduce((s, d) => s + d.maxSpeed, 0) / n).toFixed(1),
+    ee: +(data.reduce((s, d) => s + d.explosiveEfforts, 0) / n).toFixed(1),
+    running: +(data.reduce((s, d) => s + d.running, 0) / n).toFixed(1),
+    accel: +(data.reduce((s, d) => s + d.accel_3ms2, 0) / n).toFixed(1),
+    decel: +(data.reduce((s, d) => s + d.decel_3ms2, 0) / n).toFixed(1),
+  }
+}
+
+// ─── KPI Row ─────────────────────────────────────────────────────────────────
+function KpiRow({ stats, label, period }: { stats: KpiStats; label?: string; period?: Period }) {
+  const items = [
+    { label: '総走行距離',             value: stats.totalDistance.toLocaleString(), unit: 'm',     accent: '#2563eb' },
+    { label: 'HSR（20km/h+）',         value: stats.hsr.toLocaleString(),           unit: 'm',     accent: '#ef4444' },
+    { label: '１分あたりの走行距離',   value: String(stats.intensity),              unit: 'm/min', accent: '#0284c7' },
+    { label: '最高速度',               value: `${stats.maxSpeed}`,                  unit: 'km/h',  accent: '#059669' },
+    { label: 'Explosive Effort',        value: `${stats.ee}`,                        unit: '回',    accent: '#d97706' },
+    { label: '時間',                   value: `${stats.running}`,                   unit: 'min',   accent: '#7c3aed' },
+    { label: '3m/s² 加速',            value: `${stats.accel}`,                     unit: '回',    accent: '#c2410c' },
+    { label: '3m/s² 減速',            value: `${stats.decel}`,                     unit: '回',    accent: '#be185d' },
+  ]
+  const badgeText = period === 'weekly' ? '週セッション平均' : period === 'monthly' ? '月セッション平均' : '表示期間の平均'
+  return (
+    <div>
+      {label && (
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="text-xs font-semibold text-slate-500">{label}</span>
+          <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100">{badgeText}</span>
+        </div>
+      )}
+      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        {items.map(k => <KpiC key={k.label} label={k.label} value={k.value} unit={k.unit} accent={k.accent} />)}
+      </div>
+    </div>
+  )
+}
+
+// ─── Session Summary ─────────────────────────────────────────────────────────
+function SessionSummary({ data }: { data: GpsData[] }) {
+  const [idx, setIdx] = useState(data.length - 1)
+
+  const months = [...new Set(data.map(d => d.date.slice(0, 7)))].sort()
+  const [selectedMonth, setSelectedMonth] = useState(data[data.length - 1].date.slice(0, 7))
+  const monthSessions = data.map((d, i) => ({ ...d, idx: i })).filter(d => d.date.startsWith(selectedMonth))
+
+  const s = data[idx]
+  const pct25plus = +(100 - s.ratio_0_7 - s.ratio_7_15 - s.ratio_15_20 - s.ratio_20_25).toFixed(1)
+  const isMatch = s.sessionType === 'match'
+
+  const zones = [
+    { label: '0–7 km/h',   dist: s.dist_0_7,   pct: s.ratio_0_7,   count: null,          color: ZONE_COLORS[0] },
+    { label: '7–15 km/h',  dist: s.dist_7_15,  pct: s.ratio_7_15,  count: null,          color: ZONE_COLORS[1] },
+    { label: '15–20 km/h', dist: s.dist_15_20, pct: s.ratio_15_20, count: s.count_15_20, color: ZONE_COLORS[2] },
+    { label: '20–25 km/h', dist: s.dist_20_25, pct: s.ratio_20_25, count: s.count_20_25, color: ZONE_COLORS[3] },
+    { label: '25+ km/h',   dist: s.dist_25plus,pct: pct25plus,     count: s.count_25plus,color: ZONE_COLORS[4] },
+  ]
+
+  const DOW = ['日','月','火','水','木','金','土']
+  const dow = DOW[new Date(s.date).getDay()]
+
+  return (
+    <div className="space-y-4">
+      {/* Session selector */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">セッション選択</p>
+        <div className="flex gap-1.5 flex-wrap mb-3">
+          {months.map(m => {
+            const monthNum = parseInt(m.slice(5))
+            const hasSelected = data[idx].date.startsWith(m)
+            return (
+              <button key={m} onClick={() => setSelectedMonth(m)}
+                className="px-3 py-1 rounded-lg text-xs font-semibold border transition-all"
+                style={selectedMonth === m
+                  ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                  : hasSelected
+                    ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
+                    : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                {monthNum}月
+              </button>
+            )
+          })}
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {monthSessions.map(d => {
+            const match    = d.sessionType === 'match'
+            const selected = idx === d.idx
+            return (
+              <button key={d.date} onClick={() => setIdx(d.idx)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all"
+                style={selected
+                  ? match
+                    ? { color: '#dc2626', background: '#fef2f2', borderColor: '#fca5a5' }
+                    : { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
+                  : match
+                    ? { color: '#f87171', borderColor: '#fecaca', background: '#fff5f5' }
+                    : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                {match && <span>⚽</span>}
+                {d.date.slice(8)}日
+              </button>
+            )
+          })}
+        </div>
+        <div className="flex items-center gap-4 mt-2.5">
+          <span className="flex items-center gap-1 text-xs text-slate-400">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-blue-100 border border-blue-300" />トレーニング
+          </span>
+          <span className="flex items-center gap-1 text-xs text-red-400">
+            <span>⚽</span>試合
+          </span>
+        </div>
+      </div>
+
+      {/* Session Info */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">セッション情報</p>
+        <div className="flex items-center gap-6 flex-wrap">
+          <div>
+            <p className="text-xs text-slate-400 mb-0.5">日時</p>
+            <p className="text-sm font-bold text-slate-800">{s.date}（{dow}）</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-400 mb-0.5">開始時間</p>
+            <p className="text-sm font-bold text-slate-800">{s.startTime ?? '—'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-400 mb-0.5">種別</p>
+            {isMatch
+              ? <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-200">⚽ 試合</span>
+              : <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200">🏃 トレーニング</span>
+            }
+          </div>
+          {isMatch && s.opponent && (
+            <>
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">対戦相手</p>
+                <p className="text-sm font-bold text-slate-800">
+                  {s.venue === 'H' ? '🏠' : '✈️'} {s.opponent}
+                  <span className="ml-1.5 text-xs font-normal px-1.5 py-0.5 rounded"
+                    style={s.venue === 'H'
+                      ? { color: '#2563eb', background: '#eff6ff' }
+                      : { color: '#7c3aed', background: '#f5f3ff' }}>
+                    {s.venue === 'H' ? 'HOME' : 'AWAY'}
+                  </span>
+                </p>
+              </div>
+              {s.score && (
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">スコア</p>
+                  <p className="text-sm font-bold text-slate-800">{s.score}</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* KPI Row */}
+      <KpiRow stats={toKpiStats(s)} />
+
+      {/* Speed Zone */}
+      <Card title="速度帯分析">
+        <div className="flex h-8 rounded-lg overflow-hidden mb-4">
+          {zones.map(z => (
+            <div key={z.label} style={{ width: `${z.pct}%`, backgroundColor: z.color, opacity: 0.85, transition: 'width 0.4s ease' }} />
+          ))}
+        </div>
+        <div className="grid grid-cols-5 gap-2">
+          {zones.map(z => (
+            <div key={z.label} className="rounded-xl p-3 text-center border"
+              style={{ borderColor: z.color + '30', background: z.color + '06' }}>
+              <div className="text-xs font-semibold mb-2" style={{ color: z.color }}>{z.label}</div>
+              <div className="flex items-baseline justify-center gap-2">
+                <span className="text-base font-bold text-slate-800">{z.dist.toLocaleString()}<span className="text-xs font-normal text-slate-400 ml-0.5">m</span></span>
+                <span className="text-sm font-bold" style={{ color: z.color }}>{z.pct.toFixed(1)}%</span>
+              </div>
+              {z.count !== null && (
+                <div className="text-xs text-slate-500 mt-1">{z.count} 回</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Acceleration/Deceleration */}
+        <Card title="加減速">
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: '加速 3m/s²', value: s.accel_3ms2, color: '#f97316' },
+              { label: '減速 3m/s²', value: s.decel_3ms2, color: '#ef4444' },
+              { label: '加速 2m/s³', value: s.accel_2ms3, color: '#f59e0b' },
+              { label: '減速 2m/s³', value: s.decel_2ms3, color: '#f87171' },
+            ].map(k => (
+              <div key={k.label} className="rounded-xl p-3 border border-slate-100 bg-slate-50 text-center">
+                <div className="flex items-center justify-center gap-1 mb-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.color }} />
+                  <p className="text-xs text-slate-600 leading-tight">{k.label}</p>
+                </div>
+                <p className="text-2xl font-bold text-slate-900">
+                  {k.value}<span className="text-xs font-normal text-slate-500 ml-0.5">回</span>
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* High-speed count */}
+        <Card title="高速走行回数">
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: '15–20 km/h', value: s.count_15_20, color: ZONE_COLORS[2] },
+              { label: '20–25 km/h', value: s.count_20_25, color: ZONE_COLORS[3] },
+              { label: '25+ km/h',   value: s.count_25plus,color: ZONE_COLORS[4] },
+            ].map(k => (
+              <div key={k.label} className="rounded-xl p-4 text-center border border-slate-100 bg-slate-50">
+                <div className="flex items-center justify-center gap-1 mb-2">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: k.color }} />
+                  <p className="text-xs font-medium text-slate-600">{k.label}</p>
+                </div>
+                <p className="text-3xl font-bold text-slate-900">{k.value}</p>
+                <p className="text-xs text-slate-400 mt-1">回</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// ─── Trend View ──────────────────────────────────────────────────────────────
+function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
+  const fmt = (k: string) => formatPeriodLabel(k, period)
+  const allKeys = useMemo(() => data.map(d => d.date), [data])
+
+  const [range, setRange] = useState({ start: allKeys[0], end: allKeys[allKeys.length - 1] })
+  useEffect(() => {
+    setRange({ start: allKeys[0], end: allKeys[allKeys.length - 1] })
+  }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filtered = useMemo(
+    () => data.filter(d => d.date >= range.start && d.date <= range.end),
+    [data, range]
+  )
+  const latest = filtered.length > 0 ? filtered[filtered.length - 1] : data[data.length - 1]
+  const avgStats = useMemo(() => avgKpiStats(filtered), [filtered])
+
+  const isAgg = period === 'weekly' || period === 'monthly'
+
+  const speedZone = [
+    { zone: '0–7',  dist: latest.dist_0_7,   pct: latest.ratio_0_7 },
+    { zone: '7–15', dist: latest.dist_7_15,  pct: latest.ratio_7_15 },
+    { zone: '15–20',dist: latest.dist_15_20, pct: latest.ratio_15_20 },
+    { zone: '20–25',dist: latest.dist_20_25, pct: latest.ratio_20_25 },
+    { zone: '25+',  dist: latest.dist_25plus,pct: +(100-latest.ratio_0_7-latest.ratio_7_15-latest.ratio_15_20-latest.ratio_20_25).toFixed(1) },
+  ]
+  const radarData = [
+    { s: '走行距離', v: Math.min(100, Math.round(latest.totalDistance / (isAgg ? 300 : 100))) },
+    { s: '最高速度', v: Math.min(100, Math.round(latest.maxSpeed * 3)) },
+    { s: 'EF',       v: Math.min(100, latest.explosiveEfforts * 5) },
+    { s: '高速走行', v: Math.min(100, Math.round((latest.dist_20_25 + latest.dist_25plus) / (isAgg ? 30 : 10))) },
+    { s: '加速',     v: Math.min(100, latest.accel_3ms2 * (isAgg ? 2 : 4)) },
+    { s: '減速',     v: Math.min(100, latest.decel_3ms2 * (isAgg ? 2 : 4)) },
+  ]
+  const trendWithHsr = filtered.map(d => ({
+    ...d,
+    hsr: d.dist_20_25 + d.dist_25plus,
+    intensity: d.running > 0 ? Math.round(d.totalDistance / d.running) : 0,
+  }))
+
+  const periodUnit = period === 'daily' ? '日' : period === 'weekly' ? '週' : '月'
+
+  // Table column definitions: [header line1, header line2, dataKey accessor]
+  const TABLE_COLS: { h1: string; h2: string; render: (d: GpsData) => React.ReactNode }[] = [
+    { h1: '期間', h2: '',             render: d => <span className="font-medium text-blue-600">{formatPeriodLabel(d.date, period)}</span> },
+    { h1: '種別', h2: '対戦相手',      render: d => d.sessionType === 'match'
+        ? <span className="text-red-500 font-medium whitespace-nowrap">⚽ {d.opponent ?? '試合'}{d.venue ? ` (${d.venue})` : ''}</span>
+        : <span className="text-slate-400">練習</span> },
+    { h1: '総走行', h2: '距離(m)',    render: d => <span className="font-semibold text-slate-700">{d.totalDistance.toLocaleString()}</span> },
+    { h1: 'HSR', h2: '20+(m)',        render: d => <span className="font-semibold text-red-500">{(d.dist_20_25 + d.dist_25plus).toLocaleString()}</span> },
+    { h1: '走行強度', h2: '(m/min)',  render: d => <span className="font-semibold text-cyan-600">{d.running > 0 ? Math.round(d.totalDistance / d.running) : 0}</span> },
+    { h1: '最高速度', h2: '(km/h)',   render: d => <span className="text-emerald-600 font-medium">{d.maxSpeed}</span> },
+    { h1: '0–7', h2: '距離(m)',       render: d => <span className="text-slate-500">{d.dist_0_7.toLocaleString()}</span> },
+    { h1: '7–15', h2: '距離(m)',      render: d => <span className="text-slate-500">{d.dist_7_15.toLocaleString()}</span> },
+    { h1: '15–20', h2: '距離(m)',     render: d => <span className="text-slate-500">{d.dist_15_20.toLocaleString()}</span> },
+    { h1: '20–25', h2: '距離(m)',     render: d => <span className="text-slate-500">{d.dist_20_25.toLocaleString()}</span> },
+    { h1: '25+', h2: '距離(m)',       render: d => <span className="text-slate-500">{d.dist_25plus.toLocaleString()}</span> },
+    { h1: '0–7', h2: '比率(%)',       render: d => <span className="text-slate-400">{d.ratio_0_7}</span> },
+    { h1: '7–15', h2: '比率(%)',      render: d => <span className="text-slate-400">{d.ratio_7_15}</span> },
+    { h1: '15–20', h2: '比率(%)',     render: d => <span className="text-slate-400">{d.ratio_15_20}</span> },
+    { h1: '20–25', h2: '比率(%)',     render: d => <span className="text-slate-400">{d.ratio_20_25}</span> },
+    { h1: '15–20', h2: '回数(回)',    render: d => <span style={{ color: ZONE_COLORS[2] }} className="font-medium">{d.count_15_20}</span> },
+    { h1: '20–25', h2: '回数(回)',    render: d => <span style={{ color: ZONE_COLORS[3] }} className="font-medium">{d.count_20_25}</span> },
+    { h1: '25+', h2: '回数(回)',      render: d => <span style={{ color: ZONE_COLORS[4] }} className="font-medium">{d.count_25plus}</span> },
+    { h1: '加速3m/s²', h2: '(回)',   render: d => <span className="text-orange-500">{d.accel_3ms2}</span> },
+    { h1: '減速3m/s²', h2: '(回)',   render: d => <span className="text-red-400">{d.decel_3ms2}</span> },
+    { h1: '加速2m/s³', h2: '(回)',   render: d => <span className="text-amber-500">{d.accel_2ms3}</span> },
+    { h1: '減速2m/s³', h2: '(回)',   render: d => <span className="text-red-300">{d.decel_2ms3}</span> },
+    { h1: 'Explosive', h2: 'Effort(回)', render: d => <span className="text-amber-600 font-medium">{d.explosiveEfforts}</span> },
+    { h1: '走行時間', h2: '(min)',    render: d => <span className="text-slate-400">{d.running}</span> },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {/* Date range selector */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center gap-3 flex-wrap">
+        <span className="text-xs font-semibold text-slate-700">表示期間</span>
+        <select value={range.start}
+          onChange={e => setRange(r => ({ ...r, start: e.target.value }))}
+          className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 bg-white outline-none focus:border-blue-400">
+          {allKeys.map(k => <option key={k} value={k}>{formatPeriodLabel(k, period)}</option>)}
+        </select>
+        <span className="text-xs text-slate-400">〜</span>
+        <select value={range.end}
+          onChange={e => setRange(r => ({ ...r, end: e.target.value }))}
+          className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 bg-white outline-none focus:border-blue-400">
+          {allKeys.map(k => <option key={k} value={k}>{formatPeriodLabel(k, period)}</option>)}
+        </select>
+        <span className="text-xs text-slate-400">{filtered.length} {period === 'daily' ? 'セッション' : periodUnit}</span>
+      </div>
+
+      {/* KPI Row — averages */}
+      <KpiRow stats={avgStats} label="統計" period={period} />
+
+      {/* ── 走行距離 ／ HSR グラフ：横並び ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card title="走行距離">
+          <ResponsiveContainer width="100%" height={210}>
+            <LineChart data={trendWithHsr}>
+              <CartesianGrid {...CHART.grid} />
+              <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
+              <YAxis {...CHART.axis} {...AUTO_Y} tickFormatter={(v: number) => v.toLocaleString()} />
+              <Tooltip {...CHART.tooltip}
+                formatter={(v) => [`${Number(v).toLocaleString()} m`]}
+                labelFormatter={l => formatPeriodLabel(l, period)} />
+              <Legend {...CHART.legend} />
+              <Line type="monotone" dataKey="totalDistance" name="総走行距離 (m)"
+                stroke="#3b82f6" strokeWidth={2}
+                dot={{ r: 2, fill: '#3b82f6', strokeWidth: 0 }} activeDot={{ r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card title="HSR（20km/h 以上）">
+          <ResponsiveContainer width="100%" height={210}>
+            <LineChart data={trendWithHsr}>
+              <CartesianGrid {...CHART.grid} />
+              <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
+              <YAxis {...CHART.axis} {...AUTO_Y} tickFormatter={(v: number) => v.toLocaleString()} />
+              <Tooltip {...CHART.tooltip}
+                formatter={(v) => [`${Number(v).toLocaleString()} m`]}
+                labelFormatter={l => formatPeriodLabel(l, period)} />
+              <Legend {...CHART.legend} />
+              <Line type="monotone" dataKey="hsr"         name="HSR 20+ (m)"    stroke="#ef4444" strokeWidth={2.5} dot={{ r: 2, fill: '#ef4444', strokeWidth: 0 }} activeDot={{ r: 5 }} />
+              <Line type="monotone" dataKey="dist_20_25"  name="20–25km/h (m)"  stroke="#f97316" strokeWidth={1.5} strokeDasharray="5 3" dot={{ r: 2, fill: '#f97316', strokeWidth: 0 }} activeDot={{ r: 4 }} />
+              <Line type="monotone" dataKey="dist_25plus" name="25+km/h (m)"    stroke="#dc2626" strokeWidth={1.5} strokeDasharray="3 3" dot={{ r: 2, fill: '#dc2626', strokeWidth: 0 }} activeDot={{ r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      {/* 走行強度 + 時間 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card title="１分あたりの走行距離（走行強度）">
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={trendWithHsr}>
+              <CartesianGrid {...CHART.grid} />
+              <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
+              <YAxis {...CHART.axis} {...AUTO_Y} tickFormatter={(v: number) => v.toLocaleString()} />
+              <Tooltip {...CHART.tooltip} formatter={(v) => [`${Number(v).toLocaleString()} m/min`]} labelFormatter={l => formatPeriodLabel(l, period)} />
+              <Line type="monotone" dataKey="intensity" name="走行強度 (m/min)" stroke="#0284c7" strokeWidth={2} dot={{ r: 2, fill: '#0284c7', strokeWidth: 0 }} activeDot={{ r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card title="走行時間">
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={filtered}>
+              <CartesianGrid {...CHART.grid} />
+              <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
+              <YAxis {...CHART.axis} {...AUTO_Y} tickFormatter={(v: number) => v.toLocaleString()} />
+              <Tooltip {...CHART.tooltip} formatter={(v) => [`${Number(v).toLocaleString()} min`]} labelFormatter={l => formatPeriodLabel(l, period)} />
+              <Line type="monotone" dataKey="running" name="走行時間 (min)" stroke="#7c3aed" strokeWidth={2} dot={{ r: 2, fill: '#7c3aed', strokeWidth: 0 }} activeDot={{ r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card title="速度帯別距離（最新）">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={speedZone} layout="vertical" barSize={14}>
+              <CartesianGrid {...CHART.grid} />
+              <XAxis type="number" {...CHART.axis} domain={[0, 'dataMax']} tickFormatter={(v: number) => v.toLocaleString()} />
+              <YAxis dataKey="zone" type="category" width={40} {...CHART.axis} />
+              <Tooltip {...CHART.tooltip} formatter={(v) => [`${Number(v).toLocaleString()} m`]} />
+              <Bar dataKey="dist" name="距離 (m)" fill="#3b82f6" radius={4} background={{ fill: '#f8fafc', radius: 4 }} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card title="運動強度（最新）">
+          <ResponsiveContainer width="100%" height={200}>
+            <RadarChart data={radarData} margin={{ top: 10, right: 25, bottom: 10, left: 25 }}>
+              <PolarGrid stroke="#f1f5f9" />
+              <PolarAngleAxis dataKey="s" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+              <PolarRadiusAxis tick={false} axisLine={false} domain={[0, 100]} />
+              <Radar dataKey="v" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.2} strokeWidth={2} />
+            </RadarChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* 加速=暖色 / 減速=寒色 */}
+        <Card title="加減速">
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={filtered}>
+              <CartesianGrid {...CHART.grid} />
+              <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
+              <YAxis {...CHART.axis} {...AUTO_Y} tickFormatter={(v: number) => v.toLocaleString()} />
+              <Tooltip {...CHART.tooltip} formatter={(v) => [Number(v).toLocaleString() + ' 回']} labelFormatter={l => formatPeriodLabel(l, period)} />
+              <Legend {...CHART.legend} />
+              <Line type="monotone" dataKey="accel_3ms2" name="加速 3m/s²" stroke="#f97316" strokeWidth={2}   dot={{ r: 2, fill: '#f97316', strokeWidth: 0 }} />
+              <Line type="monotone" dataKey="accel_2ms3" name="加速 2m/s³" stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="4 3" dot={{ r: 2, fill: '#fbbf24', strokeWidth: 0 }} />
+              <Line type="monotone" dataKey="decel_3ms2" name="減速 3m/s²" stroke="#3b82f6" strokeWidth={2}   dot={{ r: 2, fill: '#3b82f6', strokeWidth: 0 }} />
+              <Line type="monotone" dataKey="decel_2ms3" name="減速 2m/s³" stroke="#06b6d4" strokeWidth={1.5} strokeDasharray="4 3" dot={{ r: 2, fill: '#06b6d4', strokeWidth: 0 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card title="高速走行回数">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={filtered.map(d => ({
+              date: d.date,
+              '15–20km/h': d.count_15_20,
+              '20–25km/h': d.count_20_25,
+              '25+km/h':   d.count_25plus,
+            }))} barSize={period === 'monthly' ? 36 : 8}>
+              <CartesianGrid {...CHART.grid} />
+              <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
+              <YAxis {...CHART.axis} tickFormatter={(v: number) => v.toLocaleString()} />
+              <Tooltip {...CHART.tooltip} formatter={(v) => [Number(v).toLocaleString() + ' 回']} labelFormatter={l => formatPeriodLabel(l, period)} />
+              <Legend {...CHART.legend} />
+              <Bar dataKey="15–20km/h" stackId="a" fill={ZONE_COLORS[2]} />
+              <Bar dataKey="20–25km/h" stackId="a" fill={ZONE_COLORS[3]} />
+              <Bar dataKey="25+km/h"   stackId="a" fill={ZONE_COLORS[4]} radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      {/* Records table */}
+      <Card title="記録一覧">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left">
+            <thead>
+              <tr className="border-b border-slate-100">
+                {TABLE_COLS.map((col, i) => (
+                  <th key={i} className="px-2 py-2 font-semibold text-slate-500 text-center whitespace-nowrap leading-tight">
+                    <div>{col.h1}</div>
+                    {col.h2 && <div className="text-slate-400 font-normal">{col.h2}</div>}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[...filtered].reverse().map(d => (
+                <tr key={d.date} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                  {TABLE_COLS.map((col, i) => (
+                    <td key={i} className="px-2 py-2 text-center whitespace-nowrap">{col.render(d)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+export default function GpsView({ data, period }: Props) {
+  return period === 'session' ? <SessionSummary data={data} /> : <TrendView data={data} period={period} />
+}
+
+// ─── Compact KPI card ────────────────────────────────────────────────────────
+function KpiC({ label, value, unit, accent }: { label: string; value: string; unit: string; accent: string }) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex-shrink-0" style={{ minWidth: 110 }}>
+      <div className="flex items-center gap-1 mb-1.5">
+        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: accent }} />
+        <p className="text-xs text-slate-500 leading-tight truncate">{label}</p>
+      </div>
+      <p className="text-xl font-bold leading-none text-slate-900">
+        {value}<span className="text-xs font-normal text-slate-500 ml-1">{unit}</span>
+      </p>
+    </div>
+  )
+}
+
+function Kpi({ label, value, unit, color }: { label: string; value: string; unit: string; color: string }) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+      <div className="flex items-center gap-1.5 mb-2">
+        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+        <p className="text-xs text-slate-500">{label}</p>
+      </div>
+      <p className="text-2xl font-bold text-slate-900">
+        {value}<span className="text-sm font-normal text-slate-500 ml-1">{unit}</span>
+      </p>
+    </div>
+  )
+}
+
+export { Kpi }
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+      <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-4">{title}</h3>
+      {children}
+    </div>
+  )
+}
