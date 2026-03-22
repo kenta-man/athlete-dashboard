@@ -19,7 +19,7 @@ export interface GpsData {
   explosiveEfforts: number; running: number
 }
 export interface ConditioningData {
-  date: string; height: number; weight: number; bmi: number
+  date: string; measureTime?: string; height: number; weight: number; bmi: number
   bodyFatPct: number; bodyFatMass: number; muscleMass: number
   skeletalMuscleMass: number; leanBodyMass: number
   bodyWater: number; intracellularWater: number; extracellularWater: number
@@ -193,8 +193,11 @@ function makeCond(base: typeof COND_BASE['FW'] & { hv?: number; wv?: number; fv?
     const lean = +(w * (1 - fat / 100)).toFixed(1)
     const bw   = +(lean * 0.68 + rnd(0.3)).toFixed(1)
     const bmi  = +(w / (h / 100) ** 2).toFixed(1)
+    const timeH = 8 + (i % 3)
+    const timeM = [0, 15, 30, 45][i % 4]
+    const measureTime = `${String(timeH).padStart(2,'0')}:${String(timeM).padStart(2,'0')}`
     return {
-      date, height: h, weight: w, bmi,
+      date, measureTime, height: h, weight: w, bmi,
       bodyFatPct: fat, bodyFatMass: +(w * fat / 100).toFixed(1),
       muscleMass: mu, skeletalMuscleMass: skel, leanBodyMass: lean,
       bodyWater: bw,

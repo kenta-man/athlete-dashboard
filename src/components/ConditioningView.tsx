@@ -26,7 +26,7 @@ function Card({ title, children, noPad }: { title: string; children: React.React
   return (
     <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
       <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
-        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>{title}</p>
+        <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#ddd' }}>{title}</p>
       </div>
       <div className={noPad ? '' : 'p-4'}>
         {children}
@@ -192,7 +192,7 @@ function SessionSummary({ data, player }: { data: ConditioningData[]; player: Pl
         {/* Measurement info — left */}
         <div className="bg-white border border-slate-200 overflow-hidden flex flex-col" style={{ borderRadius: 0 }}>
           <div className="px-3 py-2" style={{ backgroundColor: '#1a1a1a' }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>測定情報</p>
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#ddd' }}>測定情報</p>
           </div>
           <div className="p-3 flex flex-col gap-2 flex-1">
             <div>
@@ -203,6 +203,12 @@ function SessionSummary({ data, player }: { data: ConditioningData[]; player: Pl
               <p className="text-[10px] text-slate-400">測定日</p>
               <p className="text-xs font-bold text-slate-800">{d.date}</p>
             </div>
+            {d.measureTime && (
+              <div>
+                <p className="text-[10px] text-slate-400">測定時間</p>
+                <p className="text-xs font-bold text-slate-800">{d.measureTime}</p>
+              </div>
+            )}
             <div>
               <p className="text-[10px] text-slate-400">測定回数</p>
               <p className="text-xs font-bold text-slate-800">#{idx + 1} / {data.length}</p>
@@ -224,7 +230,7 @@ function SessionSummary({ data, player }: { data: ConditioningData[]; player: Pl
         {/* Measurement selector — right */}
         <div className="bg-white border border-slate-200 overflow-hidden flex flex-col" style={{ borderRadius: 0 }}>
           <div className="px-3 py-2" style={{ backgroundColor: '#1a1a1a' }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>測定日選択</p>
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#ddd' }}>測定日選択</p>
           </div>
           <div className="p-3 flex flex-col flex-1">
             {/* Month tabs */}
@@ -265,7 +271,7 @@ function SessionSummary({ data, player }: { data: ConditioningData[]; player: Pl
       {/* Top KPI — table layout for aligned columns */}
       <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
         <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>主要指標</p>
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#ddd' }}>主要指標</p>
         </div>
         <div className="overflow-x-auto p-3" style={{ scrollbarWidth: 'none' }}>
           <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: '100%', minWidth: topKpis.length * 72 }}>
@@ -317,7 +323,7 @@ function SessionSummary({ data, player }: { data: ConditioningData[]; player: Pl
           <div key={sec.title} className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
             <div className="px-3 py-1.5 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
               <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: sec.color }} />
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>{sec.title}</p>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#ddd' }}>{sec.title}</p>
             </div>
             <div className="p-2.5">
               {sec.items.map(it => (
@@ -330,6 +336,129 @@ function SessionSummary({ data, player }: { data: ConditioningData[]; player: Pl
                   decimals={it.decimals ?? 1}
                 />
               ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── 直近10回推移グラフ ── */}
+      <RecentTrendCharts data={data} />
+    </div>
+  )
+}
+
+// ─── 直近10回推移グラフ ───────────────────────────────────────────────────────
+function RecentTrendCharts({ data }: { data: ConditioningData[] }) {
+  const recent = data.slice(-10)
+  const fmt = (d: string) => `${parseInt(d.slice(5))}/${parseInt(d.slice(8))}`
+
+  const miniChart = {
+    grid: { stroke: '#f1f5f9', strokeDasharray: '3 3' },
+    axis: { tick: { fill: '#6b7280', fontSize: 9 }, axisLine: false, tickLine: false },
+    tooltip: {
+      contentStyle: { backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
+      labelStyle: { color: '#111827', fontWeight: 600, marginBottom: 2 },
+      itemStyle: { color: '#374151' },
+      cursor: { stroke: '#e5e7eb' },
+    },
+    legend: { wrapperStyle: { fontSize: 10, color: '#374151' } },
+  }
+
+  const charts: {
+    title: string
+    color: string
+    lines: { key: keyof ConditioningData; name: string; color: string; dashed?: boolean; yAxisId?: string }[]
+    dualY?: boolean
+    leftUnit?: string
+    rightUnit?: string
+  }[] = [
+    {
+      title: '体重', color: '#3b82f6',
+      lines: [{ key: 'weight', name: '体重(kg)', color: '#3b82f6' }],
+    },
+    {
+      title: '体脂肪率', color: '#ef4444',
+      lines: [{ key: 'bodyFatPct', name: '体脂肪率(%)', color: '#ef4444' }],
+    },
+    {
+      title: '筋肉量', color: '#10b981',
+      lines: [{ key: 'muscleMass', name: '筋肉量(kg)', color: '#10b981' }],
+    },
+    {
+      title: '体脂肪量', color: '#f97316',
+      lines: [{ key: 'bodyFatMass', name: '体脂肪量(kg)', color: '#f97316' }],
+    },
+    {
+      title: '左右足筋肉量', color: '#059669',
+      lines: [
+        { key: 'muscleRightLeg', name: '右脚(kg)', color: '#059669' },
+        { key: 'muscleLeftLeg',  name: '左脚(kg)', color: '#34d399', dashed: true },
+      ],
+    },
+    {
+      title: '体水分量・ミネラル量', color: '#0ea5e9',
+      dualY: true, leftUnit: 'L', rightUnit: 'kg',
+      lines: [
+        { key: 'bodyWater', name: '体水分量(L)', color: '#0ea5e9', yAxisId: 'l' },
+        { key: 'mineral',   name: 'ミネラル量(kg)', color: '#f59e0b', dashed: true, yAxisId: 'r' },
+      ],
+    },
+    {
+      title: '全身位相角', color: '#7c3aed',
+      lines: [{ key: 'phaseAngleWhole', name: '全身位相角(°)', color: '#7c3aed' }],
+    },
+    {
+      title: '左右足位相角', color: '#8b5cf6',
+      lines: [
+        { key: 'phaseAngleRightLeg', name: '右脚(°)', color: '#8b5cf6' },
+        { key: 'phaseAngleLeftLeg',  name: '左脚(°)', color: '#c4b5fd', dashed: true },
+      ],
+    },
+  ]
+
+  return (
+    <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+      <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+        <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#ddd' }}>直近10回 推移グラフ</p>
+      </div>
+      <div className="p-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+        {charts.map(ch => (
+          <div key={ch.title} className="border border-slate-100 overflow-hidden" style={{ borderRadius: 0 }}>
+            <div className="px-2.5 py-1.5 flex items-center gap-1.5" style={{ backgroundColor: '#222' }}>
+              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: ch.color }} />
+              <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#ccc' }}>{ch.title}</span>
+            </div>
+            <div className="p-1">
+              <ResponsiveContainer width="100%" height={130}>
+                <LineChart data={recent} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid {...miniChart.grid} />
+                  <XAxis dataKey="date" tickFormatter={fmt} {...miniChart.axis} interval="preserveStartEnd" />
+                  {ch.dualY ? (
+                    <>
+                      <YAxis yAxisId="l" {...miniChart.axis} domain={AUTO_Y.domain} width={36} />
+                      <YAxis yAxisId="r" orientation="right" {...miniChart.axis} domain={AUTO_Y.domain} width={28} />
+                    </>
+                  ) : (
+                    <YAxis {...miniChart.axis} domain={AUTO_Y.domain} width={36} />
+                  )}
+                  <Tooltip {...miniChart.tooltip} labelFormatter={l => String(l)} />
+                  {ch.lines.length > 1 && <Legend {...miniChart.legend} />}
+                  {ch.lines.map(ln => (
+                    <Line
+                      key={String(ln.key)}
+                      type="monotone"
+                      dataKey={ln.key as string}
+                      name={ln.name}
+                      stroke={ln.color}
+                      strokeWidth={ln.dashed ? 1.5 : 2}
+                      strokeDasharray={ln.dashed ? '4 3' : undefined}
+                      dot={{ r: 2.5, fill: ln.color, strokeWidth: 0 }}
+                      activeDot={{ r: 4 }}
+                      yAxisId={ch.dualY ? (ln.yAxisId ?? 'l') : undefined}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
         ))}
@@ -539,7 +668,7 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
       {/* Records table */}
       <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
         <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>記録一覧</p>
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#ddd' }}>記録一覧</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left">
