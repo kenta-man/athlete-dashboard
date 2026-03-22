@@ -3,7 +3,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { POSITION_COLORS, type Player } from '../data/sampleData'
+import { type Player } from '../data/sampleData'
 import { aggregateGpsData, aggregateCondData, type Period } from '../utils/aggregation'
 
 interface Props { players: Player[]; dataTab: 'gps' | 'conditioning'; compView?: 'session' | 'matrix' }
@@ -125,6 +125,13 @@ const COND_KPI_METRICS: CondMetricDef[] = [
   { key: 'phaseAngleWhole',    label: '全身位相角', unit: '°',    color: '#5b21b6', decimals: 1 },
   { key: 'hrResting',          label: '安静時心拍', unit: 'bpm',  color: '#ef4444', decimals: 0 },
   { key: 'hrv',                label: 'HRV',        unit: 'ms',   color: '#6366f1', decimals: 0 },
+]
+
+// Distinct palette for multi-player charts (12 colors, assigned by selection order)
+const PLAYER_PALETTE = [
+  '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
+  '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1',
+  '#14b8a6', '#e11d48',
 ]
 
 const DISPLAY_POSITIONS = ['GK', 'FP'] as const
@@ -803,12 +810,13 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                   {metDef.label}{metDef.unit ? ` (${metDef.unit})` : ''} 推移グラフ
                 </span>
                 <div className="flex items-center gap-2 ml-auto flex-wrap">
-                  {[...condSelectedCondPlayers].map(id => {
+                  {[...condSelectedCondPlayers].map((id, idx) => {
                     const pl = players.find(p => p.id === id)
+                    const color = PLAYER_PALETTE[idx % PLAYER_PALETTE.length]
                     return pl ? (
                       <span key={id} className="flex items-center gap-1 text-[10px] font-medium"
-                        style={{ color: POSITION_COLORS[pl.position] }}>
-                        <span className="inline-block w-3 h-0.5" style={{ backgroundColor: POSITION_COLORS[pl.position] }} />
+                        style={{ color }}>
+                        <span className="inline-block w-3 h-0.5" style={{ backgroundColor: color }} />
                         {pl.name}
                       </span>
                     ) : null
@@ -829,9 +837,8 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                         return [fmtCondVal(Number(v), metDef.decimals) + (metDef.unit ? ` ${metDef.unit}` : ''), pl?.name ?? name]
                       }}
                     />
-                    {[...condSelectedCondPlayers].map(id => {
-                      const pl = players.find(p => p.id === id)
-                      const color = pl ? POSITION_COLORS[pl.position] : '#94a3b8'
+                    {[...condSelectedCondPlayers].map((id, idx) => {
+                      const color = PLAYER_PALETTE[idx % PLAYER_PALETTE.length]
                       return (
                         <Line key={id} type="monotone" dataKey={id}
                           stroke={color} strokeWidth={2} dot={{ r: 3, fill: color, strokeWidth: 0 }}
@@ -965,7 +972,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
       {compView === 'session' && (
         <>
           {/* Session info (left) + Session selector (right) — side by side */}
-          <div className="grid gap-3" style={{ gridTemplateColumns: '200px 1fr' }}>
+          <div className="grid gap-3" style={{ gridTemplateColumns: '300px 1fr' }}>
 
             {/* Session info */}
             <div className="bg-white border border-slate-200 overflow-hidden flex flex-col" style={{ borderRadius: 0 }}>
@@ -1006,9 +1013,12 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                       <div className="pt-1 border-t border-slate-100 space-y-1.5 mt-1">
                         {sessionSample?.weather && (
                           <div>
-                            <p className="text-[10px] text-slate-400">天候</p>
+                            <p className="text-[10px] text-slate-400">天候 / 気温</p>
                             <p className="text-xs font-bold text-slate-800">
                               {sessionSample.weather === '晴' ? '☀️ 晴' : sessionSample.weather === '曇' ? '☁️ 曇' : '🌧 雨'}
+                              {sessionSample?.temperature != null && (
+                                <span className="ml-1.5 text-slate-600">{sessionSample.temperature}°C</span>
+                              )}
                             </p>
                           </div>
                         )}
@@ -1020,28 +1030,6 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                         )}
                       </div>
                     )}
-                  </>
-                )}
-                <div className="mt-auto">
-                  <p className="text-[10px] text-slate-400">データ</p>
-                  <p className="text-sm font-bold text-slate-800">{sessionPlayersOnDate.length}<span className="text-xs font-normal text-slate-400 ml-0.5">名</span></p>
-                </div>
-                {sessionIsMatch && (
-                  <>
-                    <div>
-                      <p className="text-[10px] text-slate-400">スタメン</p>
-                      <p className="text-sm font-bold text-slate-800">
-                        {sessionPlayersOnDate.filter((p: any) => p.session?.isStarter === true).length}
-                        <span className="text-xs font-normal text-slate-400 ml-0.5">名</span>
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-slate-400">途中出場</p>
-                      <p className="text-sm font-bold text-slate-800">
-                        {sessionPlayersOnDate.filter((p: any) => p.session?.isStarter === false).length}
-                        <span className="text-xs font-normal text-slate-400 ml-0.5">名</span>
-                      </p>
-                    </div>
                   </>
                 )}
               </div>
@@ -1396,12 +1384,13 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                   {matrixMetric.label} 推移グラフ
                 </span>
                 <div className="flex items-center gap-2 ml-auto flex-wrap">
-                  {[...selectedMatrixPlayers].map(id => {
+                  {[...selectedMatrixPlayers].map((id, idx) => {
                     const pl = players.find(p => p.id === id)
+                    const color = PLAYER_PALETTE[idx % PLAYER_PALETTE.length]
                     return pl ? (
                       <span key={id} className="flex items-center gap-1 text-[10px] font-medium"
-                        style={{ color: '#2563eb' }}>
-                        <span className="inline-block w-3 h-0.5" style={{ backgroundColor: '#2563eb' }} />
+                        style={{ color }}>
+                        <span className="inline-block w-3 h-0.5" style={{ backgroundColor: color }} />
                         {pl.name}
                       </span>
                     ) : null
@@ -1421,8 +1410,8 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                         return [`${Number(v).toLocaleString()} ${matrixMetric.unit}`, pl?.name ?? name]
                       }}
                     />
-                    {[...selectedMatrixPlayers].map(id => {
-                      const color = '#2563eb'
+                    {[...selectedMatrixPlayers].map((id, idx) => {
+                      const color = PLAYER_PALETTE[idx % PLAYER_PALETTE.length]
                       return (
                         <Line key={id} type="monotone" dataKey={id}
                           stroke={color} strokeWidth={2} dot={{ r: 3, fill: color, strokeWidth: 0 }}
