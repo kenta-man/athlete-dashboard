@@ -6,7 +6,7 @@ import {
 import { POSITION_COLORS, type Player } from '../data/sampleData'
 import { aggregateGpsData, aggregateCondData, type Period, formatPeriodLabel } from '../utils/aggregation'
 
-interface Props { players: Player[]; period: Period; dataTab: 'gps' | 'conditioning' }
+interface Props { players: Player[]; dataTab: 'gps' | 'conditioning' }
 
 const CHART = {
   grid: { stroke: '#f1f5f9', strokeDasharray: '3 3' },
@@ -17,36 +17,35 @@ const CHART = {
     itemStyle: { color: '#334155' },
     cursor: { fill: 'rgba(0,0,0,0.03)' },
   },
-  legend: { wrapperStyle: { fontSize: 11, color: '#94a3b8' } },
 }
 
 const GPS_METRICS = [
-  { key: 'totalDistance',    label: '総走行距離',           unit: 'm',     accent: '#3b82f6' },
-  { key: 'hsr',              label: 'HSR（20km/h+）',        unit: 'm',     accent: '#ef4444' },
-  { key: 'intensity',        label: '１分あたりの走行距離',  unit: 'm/min', accent: '#0284c7' },
-  { key: 'maxSpeed',         label: '最高速度',              unit: 'km/h',  accent: '#059669' },
-  { key: 'explosiveEfforts', label: 'Explosive Effort',      unit: '回',    accent: '#d97706' },
-  { key: 'accel_3ms2',       label: '加速',                  unit: '回',    accent: '#f97316' },
-  { key: 'decel_3ms2',       label: '減速',                  unit: '回',    accent: '#be185d' },
+  { key: 'totalDistance',    label: '総走行距離',          unit: 'm',     accent: '#3b82f6' },
+  { key: 'hsr',              label: 'HSR（20km/h+）',       unit: 'm',     accent: '#ef4444' },
+  { key: 'intensity',        label: '1分あたり走行距離',   unit: 'm/min', accent: '#0284c7' },
+  { key: 'maxSpeed',         label: '最高速度',             unit: 'km/h',  accent: '#059669' },
+  { key: 'explosiveEfforts', label: 'Explosive Effort',     unit: '回',    accent: '#d97706' },
+  { key: 'accel_3ms2',       label: '加速',                 unit: '回',    accent: '#f97316' },
+  { key: 'decel_3ms2',       label: '減速',                 unit: '回',    accent: '#be185d' },
 ]
 
 const ZONE_COLS = [
-  { key: 'dist_0_7',    label: '0–7km/h',    color: '#3b82f6' },
-  { key: 'dist_7_15',   label: '7–15km/h',   color: '#10b981' },
-  { key: 'dist_15_20',  label: '15–20km/h',  color: '#f59e0b' },
-  { key: 'dist_20_25',  label: '20–25km/h',  color: '#f97316' },
-  { key: 'dist_25plus', label: '25+km/h',    color: '#ef4444' },
+  { key: 'dist_0_7',    label: '0–7km/h',   color: '#3b82f6' },
+  { key: 'dist_7_15',   label: '7–15km/h',  color: '#10b981' },
+  { key: 'dist_15_20',  label: '15–20km/h', color: '#f59e0b' },
+  { key: 'dist_20_25',  label: '20–25km/h', color: '#f97316' },
+  { key: 'dist_25plus', label: '25+km/h',   color: '#ef4444' },
 ]
 
 const COND_METRICS = [
-  { key: 'bodyFatPct',         label: '体脂肪率',   unit: '%',  accent: '#ef4444' },
-  { key: 'muscleMass',         label: '筋肉量',     unit: 'kg', accent: '#10b981' },
-  { key: 'skeletalMuscleMass', label: '骨格筋量',   unit: 'kg', accent: '#059669' },
-  { key: 'weight',             label: '体重',       unit: 'kg', accent: '#3b82f6' },
-  { key: 'phaseAngleWhole',    label: '全身位相角', unit: '°',  accent: '#8b5cf6' },
-  { key: 'hydrationRate',      label: '水和率',     unit: '%',  accent: '#0ea5e9' },
-  { key: 'hrResting',          label: '安静時心拍', unit: 'bpm',accent: '#ef4444' },
-  { key: 'hrv',                label: 'HRV',        unit: 'ms', accent: '#6366f1' },
+  { key: 'bodyFatPct',         label: '体脂肪率',   unit: '%',   accent: '#ef4444' },
+  { key: 'muscleMass',         label: '筋肉量',     unit: 'kg',  accent: '#10b981' },
+  { key: 'skeletalMuscleMass', label: '骨格筋量',   unit: 'kg',  accent: '#059669' },
+  { key: 'weight',             label: '体重',       unit: 'kg',  accent: '#3b82f6' },
+  { key: 'phaseAngleWhole',    label: '全身位相角', unit: '°',   accent: '#8b5cf6' },
+  { key: 'hydrationRate',      label: '水和率',     unit: '%',   accent: '#0ea5e9' },
+  { key: 'hrResting',          label: '安静時心拍', unit: 'bpm', accent: '#ef4444' },
+  { key: 'hrv',                label: 'HRV',        unit: 'ms',  accent: '#6366f1' },
 ]
 
 const DISPLAY_POSITIONS = ['GK', 'FP'] as const
@@ -54,22 +53,109 @@ type DisplayPos = typeof DISPLAY_POSITIONS[number]
 const POS_GROUPS: Record<DisplayPos, string[]> = { GK: ['GK'], FP: ['DF', 'MF', 'FW'] }
 const GROUP_COLORS: Record<DisplayPos, string> = { GK: '#f59e0b', FP: '#6366f1' }
 
+const MATRIX_PERIODS = [
+  { key: 'daily'   as const, label: '日別' },
+  { key: 'weekly'  as const, label: '週別' },
+  { key: 'monthly' as const, label: '月別' },
+]
+
 function getVal(obj: Record<string, unknown>, key: string): number {
   return (obj as unknown as Record<string, number>)[key] ?? 0
 }
 
-function SessionDaySummary({ aggPlayers, metrics, selectedDate }: {
-  aggPlayers: any[]
-  metrics: { key: string; label: string; unit: string; accent: string }[]
-  selectedDate: string
+/* ── Ranking bar pair component ── */
+function RankingPair({
+  leftTitle, leftRanking, leftUnit, leftFpAvg, leftGkAvg,
+  rightTitle, rightRanking, rightUnit, rightFpAvg, rightGkAvg,
+}: {
+  leftTitle: string; leftRanking: any[]; leftUnit: string; leftFpAvg: number; leftGkAvg: number
+  rightTitle: string; rightRanking: any[]; rightUnit: string; rightFpAvg: number; rightGkAvg: number
 }) {
+  const renderRank = (ranking: any[], unit: string, fpAvg: number, gkAvg: number) => {
+    const maxVal = ranking[0]?.value ?? 1
+    const fpAvgPct = (fpAvg / maxVal) * 100
+    const gkAvgPct = (gkAvg / maxVal) * 100
+    return ranking.map((d: any, rank: number) => {
+      const isGK = d.pos === 'GK'
+      const groupAvg = isGK ? gkAvg : fpAvg
+      const aboveAvg = d.value > groupAvg
+      const highlightColor = isGK ? '#f59e0b' : '#6366f1'
+      const barBg = aboveAvg ? highlightColor + '25' : '#e2e8f0'
+      const barBorder = aboveAvg ? highlightColor : '#cbd5e1'
+      const pct = maxVal > 0 ? (d.value / maxVal) * 100 : 0
+      return (
+        <div key={d.id} className="flex items-center gap-2">
+          <span className="text-xs w-5 text-right flex-shrink-0 font-bold"
+            style={{ color: rank < 3 ? '#f59e0b' : '#cbd5e1' }}>{rank + 1}</span>
+          <img src={d.photo} alt={d.name}
+            className="w-5 h-5 rounded-full object-cover flex-shrink-0 border border-slate-200"
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+          <span className="text-xs w-28 flex-shrink-0 truncate font-medium text-slate-800">{d.name}</span>
+          <span className="text-[10px] w-6 flex-shrink-0 font-medium"
+            style={{ color: aboveAvg ? highlightColor : '#94a3b8' }}>{d.pos}</span>
+          <div className="flex-1 h-4 overflow-hidden bg-slate-100 relative" style={{ borderRadius: 2 }}>
+            <div className="h-full transition-all"
+              style={{ width: `${pct}%`, backgroundColor: barBg, borderRight: `2px solid ${barBorder}` }} />
+            <div className="absolute top-0 bottom-0 w-px"
+              style={{ left: `${fpAvgPct}%`, backgroundColor: '#6366f1', opacity: 0.6 }} />
+            <div className="absolute top-0 bottom-0 w-px"
+              style={{ left: `${gkAvgPct}%`, backgroundColor: '#f59e0b', opacity: 0.6 }} />
+          </div>
+          <span className="text-xs w-16 text-right flex-shrink-0 font-bold"
+            style={{ color: aboveAvg ? highlightColor : '#1e293b' }}>
+            {d.value.toLocaleString()}
+            <span className="font-normal text-slate-400 ml-0.5">{unit}</span>
+          </span>
+        </div>
+      )
+    })
+  }
+
+  const legendRow = (fpAvg: number, gkAvg: number, unit: string) => (
+    <div className="flex gap-3 mb-3 text-[10px] px-5 pt-3">
+      <span className="flex items-center gap-1 text-slate-500">
+        <span className="inline-block w-4 h-px border-t-2 border-dashed" style={{ borderColor: '#6366f1' }} />
+        FP平均 <span className="font-bold text-slate-800">{Math.round(fpAvg).toLocaleString()}</span> {unit}
+      </span>
+      <span className="flex items-center gap-1 text-slate-500">
+        <span className="inline-block w-4 h-px border-t-2 border-dashed" style={{ borderColor: '#f59e0b' }} />
+        GK平均 <span className="font-bold text-slate-800">{Math.round(gkAvg).toLocaleString()}</span> {unit}
+      </span>
+    </div>
+  )
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+        <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>{leftTitle}</h3>
+        </div>
+        {legendRow(leftFpAvg, leftGkAvg, leftUnit)}
+        <div className="space-y-1 max-h-80 overflow-y-auto pr-1 px-5 pb-4" style={{ scrollbarWidth: 'none' }}>
+          {renderRank(leftRanking, leftUnit, leftFpAvg, leftGkAvg)}
+        </div>
+      </div>
+      <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+        <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>{rightTitle}</h3>
+        </div>
+        {legendRow(rightFpAvg, rightGkAvg, rightUnit)}
+        <div className="space-y-1 max-h-80 overflow-y-auto pr-1 px-5 pb-4" style={{ scrollbarWidth: 'none' }}>
+          {renderRank(rightRanking, rightUnit, rightFpAvg, rightGkAvg)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Session player cards ── */
+function SessionDaySummary({ aggPlayers, selectedDate }: { aggPlayers: any[]; selectedDate: string }) {
   const playersOnDate = aggPlayers.map((p: any) => {
     const session = p.agg.find((d: any) => d.date === selectedDate) as any
     return { ...p, session }
   }).filter((p: any) => p.session)
 
   if (playersOnDate.length === 0) return null
-
   return (
     <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
       <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
@@ -90,7 +176,7 @@ function SessionDaySummary({ aggPlayers, metrics, selectedDate }: {
                 </div>
               </div>
               <div className="space-y-0.5">
-                {metrics.map((m: any) => (
+                {GPS_METRICS.map((m: any) => (
                   <div key={m.key} className="flex items-center justify-between">
                     <span className="text-[8px] text-slate-400 truncate pr-1">{m.label}</span>
                     <span className="text-[10px] font-bold text-slate-800 flex-shrink-0 tabular-nums">
@@ -108,125 +194,79 @@ function SessionDaySummary({ aggPlayers, metrics, selectedDate }: {
   )
 }
 
-export default function ComparisonView({ players, period, dataTab }: Props) {
+/* ══════════════════════════════════════════
+   Main component
+══════════════════════════════════════════ */
+export default function ComparisonView({ players, dataTab }: Props) {
   const isGps = dataTab === 'gps'
-  const metrics = isGps ? GPS_METRICS : COND_METRICS
-  const [metricKey, setMetricKey] = useState(metrics[0].key)
-  // activeM: fallback to first metric when switching tabs (metricKey may be from the other tab)
-  const activeM = metrics.find(m => m.key === metricKey) ?? metrics[0]
-  const effectiveKey = activeM.key   // always a valid key for the current tab
 
-  // Table sort state
+  /* ── GPS internal view tab ── */
+  const [compView, setCompView] = useState<'session' | 'matrix'>('matrix')
+
+  /* ── GPS session state ── */
+  const [selectedSessionDate, setSelectedSessionDate] = useState('')
+  const [selectedSessionMonth, setSelectedSessionMonth] = useState('')
+
+  /* ── GPS matrix state ── */
+  const [matrixMetricKey, setMatrixMetricKey] = useState('totalDistance')
+  const [matrixPeriod, setMatrixPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [tableSort, setTableSort] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'totalDistance', dir: 'desc' })
   const handleTableSort = (key: string) => {
     setTableSort(prev => prev.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' })
   }
 
-  const aggPlayers = useMemo(() => players.map(p => ({
-    ...p,
-    agg: isGps
-      ? aggregateGpsData(p.gpsData, period).map((d: any) => ({
-          ...d,
-          hsr: (d.dist_20_25 ?? 0) + (d.dist_25plus ?? 0),
-          intensity: d.running > 0 ? Math.round(d.totalDistance / d.running) : 0,
-        }))
-      : aggregateCondData(p.conditioningData, period),
-  })), [players, period, isGps])
+  /* ── Conditioning internal state ── */
+  const [condPeriod, setCondPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
+  const [condMetricKey, setCondMetricKey] = useState(COND_METRICS[0].key)
 
-  const latestVals = useMemo(() =>
-    aggPlayers.map(p => {
-      const last = p.agg[p.agg.length - 1] as unknown as Record<string, number>
-      return { id: p.id, name: p.name, pos: p.position, photo: p.photo, value: last ? getVal(last, effectiveKey) : 0 }
-    }).sort((a, b) =>
-      effectiveKey === 'bodyFatPct' || effectiveKey === 'hrResting' ? a.value - b.value : b.value - a.value
-    ),
-    [aggPlayers, effectiveKey]
+  /* ── Pre-compute GPS agg for all periods ── */
+  const gpsAgg = useMemo(() => {
+    const compute = (p: Period) => players.map(pl => ({
+      ...pl,
+      agg: aggregateGpsData(pl.gpsData, p).map((d: any) => ({
+        ...d,
+        hsr: (d.dist_20_25 ?? 0) + (d.dist_25plus ?? 0),
+        intensity: d.running > 0 ? Math.round(d.totalDistance / d.running) : 0,
+      }))
+    }))
+    return {
+      session: compute('session'),
+      daily:   compute('daily'),
+      weekly:  compute('weekly'),
+      monthly: compute('monthly'),
+    }
+  }, [players])
+
+  /* ── Session dates ── */
+  const allSessionDates = useMemo(() =>
+    [...new Set(gpsAgg.session.flatMap((p: any) => p.agg.map((d: any) => d.date)))].sort(),
+    [gpsAgg.session]
   )
-
-  const trendData = useMemo(() => {
-    const keys = [...new Set(aggPlayers.flatMap(p => p.agg.map(d => d.date)))].sort()
-    return keys.map(date => {
-      const row: Record<string, unknown> = { date }
-      aggPlayers.forEach(p => {
-        const d = p.agg.find(x => x.date === date) as unknown as Record<string, number> | undefined
-        row[p.id] = d ? getVal(d, effectiveKey) : null
-      })
-      return row
-    })
-  }, [aggPlayers, effectiveKey])
-
-  // Per-metric averages for each position group (GPS only)
-  const posMetricAvgs = useMemo(() => {
-    const result: Record<string, Record<string, number>> = {}
-    DISPLAY_POSITIONS.forEach(pos => {
-      result[pos] = {}
-      const posPlayers = aggPlayers.filter((p: any) => POS_GROUPS[pos].includes(p.position))
-      GPS_METRICS.forEach(m => {
-        const sum = posPlayers.reduce((s: number, p: any) => {
-          const last = p.agg[p.agg.length - 1] as any
-          return s + (last ? getVal(last, m.key) : 0)
-        }, 0)
-        result[pos][m.key] = posPlayers.length ? +(sum / posPlayers.length).toFixed(1) : 0
-      })
-    })
-    return result
-  }, [aggPlayers])
-
-  // Fixed rankings for totalDistance and hsr
-  const totalDistRanking = useMemo(() =>
-    aggPlayers.map((p: any) => {
-      const last = p.agg[p.agg.length - 1] as any
-      return { id: p.id, name: p.name, pos: p.position, photo: p.photo, value: last ? getVal(last, 'totalDistance') : 0 }
-    }).sort((a: any, b: any) => b.value - a.value),
-    [aggPlayers]
-  )
-  const hsrRanking = useMemo(() =>
-    aggPlayers.map((p: any) => {
-      const last = p.agg[p.agg.length - 1] as any
-      return { id: p.id, name: p.name, pos: p.position, photo: p.photo, value: last ? getVal(last, 'hsr') : 0 }
-    }).sort((a: any, b: any) => b.value - a.value),
-    [aggPlayers]
-  )
-
-  // Session date picker state (lifted from SessionDaySummary)
-  const allSessionDates = useMemo(() => {
-    if (!isGps) return []
-    return [...new Set(aggPlayers.flatMap((p: any) => p.agg.map((d: any) => d.date)))].sort()
-  }, [aggPlayers, isGps])
-
   const allSessionMonths = useMemo(() =>
     [...new Set(allSessionDates.map(d => d.slice(0, 7)))].sort(),
     [allSessionDates]
   )
-
-  const [selectedSessionDate, setSelectedSessionDate] = useState(() =>
-    allSessionDates.length > 0 ? allSessionDates[allSessionDates.length - 1] : ''
-  )
-  const [selectedSessionMonth, setSelectedSessionMonth] = useState(() =>
-    allSessionMonths.length > 0 ? allSessionMonths[allSessionMonths.length - 1] : ''
-  )
-
   useEffect(() => {
     if (allSessionDates.length > 0) {
       const last = allSessionDates[allSessionDates.length - 1]
       setSelectedSessionDate(last)
       setSelectedSessionMonth(last.slice(0, 7))
     }
-  }, [players, period, isGps]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [players]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const monthSessionDates = useMemo(() =>
     allSessionDates.filter(d => d.startsWith(selectedSessionMonth)),
     [allSessionDates, selectedSessionMonth]
   )
-
   const sessionPlayersOnDate = useMemo(() =>
-    aggPlayers.map((p: any) => ({
+    gpsAgg.session.map((p: any) => ({
       ...p,
-      session: p.agg.find((d: any) => d.date === selectedSessionDate) as any
+      session: p.agg.find((d: any) => d.date === selectedSessionDate)
     })).filter((p: any) => p.session),
-    [aggPlayers, selectedSessionDate]
+    [gpsAgg.session, selectedSessionDate]
   )
 
+  /* ── Session info ── */
   const DOW_LABELS = ['日','月','火','水','木','金','土']
   const sessionInfoDate = selectedSessionDate ? (() => {
     const dt = new Date(selectedSessionDate)
@@ -238,406 +278,624 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
   const sessionVenue = sessionSample?.venue
   const sessionScore = sessionSample?.score
 
-  return (
-    <div className="space-y-4">
+  /* ── posMetricAvgs helper ── */
+  const computePosAvgs = (aggPlayers: any[], isSession = false) => {
+    const result: Record<string, Record<string, number>> = {}
+    DISPLAY_POSITIONS.forEach(pos => {
+      result[pos] = {}
+      const posPlayers = aggPlayers.filter((p: any) => POS_GROUPS[pos].includes(p.position))
+      const allCols = [...GPS_METRICS.map(m => m.key), ...ZONE_COLS.map(z => z.key)]
+      allCols.forEach(key => {
+        const sum = posPlayers.reduce((s: number, p: any) => {
+          const val = isSession
+            ? getVal(p.session ?? {}, key)
+            : getVal((p.agg[p.agg.length - 1] ?? {}), key)
+          return s + val
+        }, 0)
+        result[pos][key] = posPlayers.length ? +(sum / posPlayers.length).toFixed(1) : 0
+      })
+    })
+    return result
+  }
 
-      {/* === SESSION + GPS: date picker + session info ABOVE everything === */}
-      {period === 'session' && isGps && (
-        <>
-          {/* Date picker: month tabs + day pills (oldest left) */}
-          <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-            <div className="px-3 py-2 flex gap-1.5 flex-wrap" style={{ backgroundColor: '#1a1a1a' }}>
-              {allSessionMonths.map(m => {
-                const mNum = parseInt(m.slice(5))
-                const isSel = selectedSessionMonth === m
-                return (
-                  <button key={m} onClick={() => setSelectedSessionMonth(m)}
-                    className="px-4 py-1.5 text-sm font-bold border transition-all"
-                    style={isSel
-                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
-                      : { color: '#aaa', borderColor: '#444', background: 'transparent', borderRadius: 3 }}>
-                    {mNum}月
-                  </button>
-                )
-              })}
-            </div>
-            <div className="flex gap-1 flex-wrap p-3">
-              {monthSessionDates.map(d => {
-                const dt = new Date(d)
-                const isMatch = aggPlayers.some((p: any) => p.agg.find((s: any) => s.date === d && s.sessionType === 'match'))
-                const isSel = selectedSessionDate === d
-                return (
-                  <button key={d} onClick={() => setSelectedSessionDate(d)}
-                    className="px-2 py-0.5 text-[11px] font-semibold border transition-all flex items-center gap-0.5"
-                    style={isSel
-                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
-                      : isMatch
-                        ? { color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5', borderRadius: 3 }
-                        : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
-                    {isMatch && <span style={{ fontSize: 9 }}>⚽</span>}
-                    {dt.getDate()}
-                  </button>
-                )
-              })}
-            </div>
+  const sessionPosAvgs = useMemo(() => computePosAvgs(sessionPlayersOnDate, true), [sessionPlayersOnDate])
+  const matrixPosAvgs  = useMemo(() => computePosAvgs(gpsAgg[matrixPeriod]),         [gpsAgg, matrixPeriod])
+
+  /* ── Rankings ── */
+  const makeRanking = (aggPlayers: any[], key: string, fromSession = false) =>
+    aggPlayers.map((p: any) => {
+      const val = fromSession
+        ? (p.session ? getVal(p.session, key) : 0)
+        : (p.agg[p.agg.length - 1] ? getVal(p.agg[p.agg.length - 1], key) : 0)
+      return { id: p.id, name: p.name, pos: p.position, photo: p.photo, value: val }
+    }).sort((a: any, b: any) => b.value - a.value)
+
+  const sessionDistRank = useMemo(() => makeRanking(sessionPlayersOnDate, 'totalDistance', true), [sessionPlayersOnDate])
+  const sessionHsrRank  = useMemo(() => makeRanking(sessionPlayersOnDate, 'hsr', true),           [sessionPlayersOnDate])
+  const matrixDistRank  = useMemo(() => makeRanking(gpsAgg[matrixPeriod], 'totalDistance'),        [gpsAgg, matrixPeriod])
+  const matrixHsrRank   = useMemo(() => makeRanking(gpsAgg[matrixPeriod], 'hsr'),                  [gpsAgg, matrixPeriod])
+
+  const getGroupAvg = (ranking: any[], posGroup: DisplayPos) => {
+    const group = ranking.filter((p: any) => POS_GROUPS[posGroup].includes(p.pos))
+    return group.length ? group.reduce((s: number, p: any) => s + p.value, 0) / group.length : 0
+  }
+
+  /* ── FP/GK average cards ── */
+  const renderPosCards = (posAvgs: Record<string, Record<string, number>>) => (
+    <div className="grid grid-cols-2 gap-3">
+      {(['FP', 'GK'] as DisplayPos[]).map(pos => (
+        <div key={pos} className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+          <div className="px-4 py-2 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
+            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>{pos}</span>
+            <span className="text-xs font-normal" style={{ color: '#888' }}>平均</span>
+            <span className="w-2 h-2 rounded-full ml-auto flex-shrink-0" style={{ backgroundColor: GROUP_COLORS[pos] }} />
           </div>
+          <div className="flex gap-3 flex-wrap p-3">
+            {GPS_METRICS.map(m => (
+              <div key={m.key} className="text-center min-w-[60px]">
+                <div className="text-[9px] text-slate-400 whitespace-nowrap leading-tight">{m.label}</div>
+                <div className="text-sm font-bold text-slate-800">{(posAvgs[pos]?.[m.key] ?? 0).toLocaleString()}</div>
+                <div className="text-[8px] text-slate-400">{m.unit}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 
-          {/* Session info */}
-          <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-            <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
-              <span className="text-xs font-bold tracking-widest uppercase" style={{ color: '#aaa' }}>セッション情報</span>
-            </div>
-            <div className="p-3 flex items-start gap-4 flex-wrap">
-              <div>
-                <p className="text-[10px] text-slate-400 mb-0.5">日時</p>
-                <p className="text-sm font-bold text-slate-800">{sessionInfoDate}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-400 mb-0.5">種別</p>
-                {sessionIsMatch
-                  ? <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#cc0000', borderRadius: 2 }}>⚽ 試合</span>
-                  : <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#1a1a1a', borderRadius: 2 }}>🏃 練習</span>
-                }
-              </div>
-              {sessionIsMatch && sessionOpponent && (
-                <div>
-                  <p className="text-[10px] text-slate-400 mb-0.5">対戦相手</p>
-                  <p className="text-xs font-bold text-slate-800">
-                    {sessionVenue === 'H' ? '🏠' : '✈️'} {sessionOpponent}
-                    <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5"
-                      style={sessionVenue === 'H' ? { color: '#fff', background: '#1e6fad', borderRadius: 2 } : { color: '#fff', background: '#5b21b6', borderRadius: 2 }}>
-                      {sessionVenue === 'H' ? 'HOME' : 'AWAY'}
+  /* ── All-players GPS table ── */
+  const renderGpsTable = (aggPlayers: any[], posAvgs: Record<string, Record<string, number>>) => (
+    <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+      <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
+        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>全選手 GPS データ一覧</h3>
+        <span className="text-[10px]" style={{ color: '#888' }}>ポジション平均以上のセルを強調</span>
+      </div>
+      <div className="overflow-x-auto p-4">
+        <table className="text-xs border-collapse" style={{ tableLayout: 'fixed', width: '100%', minWidth: 900 }}>
+          <colgroup>
+            <col style={{ width: 140 }} />
+            <col style={{ width: 44 }} />
+            {GPS_METRICS.map(m => <col key={m.key} style={{ width: 72 }} />)}
+            {ZONE_COLS.map(z => <col key={z.key} style={{ width: 72 }} />)}
+          </colgroup>
+          <thead>
+            <tr style={{ backgroundColor: '#2a2a2a' }}>
+              <th className="text-left py-2 pr-3 font-bold sticky left-0"
+                style={{ color: '#ccc', backgroundColor: '#2a2a2a', fontSize: 11 }}>選手</th>
+              <th className="text-center py-2 px-1 font-bold" style={{ color: '#ccc', fontSize: 11 }}>POS</th>
+              {GPS_METRICS.map(m => {
+                const active = tableSort.key === m.key
+                return (
+                  <th key={m.key}
+                    className="text-right py-2 px-1 font-bold leading-tight cursor-pointer select-none"
+                    style={{ color: active ? '#fff' : '#aaa', fontSize: 11, backgroundColor: active ? '#2563eb' : undefined }}
+                    onClick={() => handleTableSort(m.key)}>
+                    <div className="break-words hyphens-auto">{m.label}</div>
+                    <div className="flex items-center justify-end gap-0.5 mt-0.5">
+                      <span style={{ fontSize: 9, color: active ? '#ddd' : '#666' }}>{m.unit}</span>
+                      <span style={{ fontSize: 10, color: active ? '#fff' : '#555' }}>
+                        {active ? (tableSort.dir === 'desc' ? '↓' : '↑') : '↕'}
+                      </span>
+                    </div>
+                  </th>
+                )
+              })}
+              {ZONE_COLS.map(z => {
+                const active = tableSort.key === z.key
+                return (
+                  <th key={z.key}
+                    className="text-right py-2 px-1 font-bold leading-tight cursor-pointer select-none"
+                    style={{ color: active ? '#fff' : '#aaa', fontSize: 11, backgroundColor: active ? '#2563eb' : undefined }}
+                    onClick={() => handleTableSort(z.key)}>
+                    <div className="break-words">{z.label}</div>
+                    <div className="flex items-center justify-end gap-0.5 mt-0.5">
+                      <span style={{ fontSize: 9, color: active ? '#ddd' : '#666' }}>m</span>
+                      <span style={{ fontSize: 10, color: active ? '#fff' : '#555' }}>
+                        {active ? (tableSort.dir === 'desc' ? '↓' : '↑') : '↕'}
+                      </span>
+                    </div>
+                  </th>
+                )
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {[...aggPlayers].sort((a: any, b: any) => {
+              const aLast = a.agg[a.agg.length - 1] as any
+              const bLast = b.agg[b.agg.length - 1] as any
+              const aVal = getVal(aLast ?? {}, tableSort.key)
+              const bVal = getVal(bLast ?? {}, tableSort.key)
+              return tableSort.dir === 'desc' ? bVal - aVal : aVal - bVal
+            }).map((p: any) => {
+              const last = p.agg[p.agg.length - 1] as any
+              const posGroup: DisplayPos = (POS_GROUPS.GK as string[]).includes(p.position) ? 'GK' : 'FP'
+              const groupAvgs = posAvgs[posGroup] ?? {}
+              return (
+                <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                  <td className="py-1.5 pr-2 sticky left-0 bg-white">
+                    <div className="flex items-center gap-1.5">
+                      <img src={p.photo} alt={p.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                      <span className="font-medium text-slate-800 truncate">{p.name}</span>
+                    </div>
+                  </td>
+                  <td className="text-center py-1.5 px-1">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">
+                      {p.position}
                     </span>
-                  </p>
-                </div>
-              )}
-              {sessionIsMatch && sessionScore && (
-                <div>
-                  <p className="text-[10px] text-slate-400 mb-0.5">スコア</p>
-                  <p className="text-xs font-bold text-slate-800">{sessionScore}</p>
-                </div>
-              )}
-              <div className="ml-auto text-right">
-                <p className="text-[10px] text-slate-400 mb-0.5">データ</p>
-                <p className="text-sm font-bold text-slate-800">{sessionPlayersOnDate.length}<span className="text-xs font-normal text-slate-400 ml-0.5">名</span></p>
-              </div>
+                  </td>
+                  {GPS_METRICS.map(m => {
+                    const val = last ? (getVal(last, m.key) || 0) : 0
+                    const avg = groupAvgs[m.key] ?? 0
+                    const aboveAvg = avg > 0 && val > avg
+                    return (
+                      <td key={m.key} className="text-right py-1.5 px-1 font-semibold tabular-nums"
+                        style={aboveAvg ? { color: m.accent, background: m.accent + '10' } : { color: '#1e293b' }}>
+                        {val.toLocaleString()}
+                      </td>
+                    )
+                  })}
+                  {ZONE_COLS.map(z => {
+                    const val = last ? (getVal(last, z.key) || 0) : 0
+                    return (
+                      <td key={z.key} className="text-right py-1.5 px-1 tabular-nums text-slate-700">
+                        {val.toLocaleString()}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+
+  /* ── Comparison Matrix table: player × period ── */
+  const matrixMetric = GPS_METRICS.find(m => m.key === matrixMetricKey) ?? GPS_METRICS[0]
+
+  const matrixRows = useMemo(() => {
+    return players.map(pl => {
+      const posGroup: DisplayPos = POS_GROUPS.GK.includes(pl.position) ? 'GK' : 'FP'
+      const vals: Record<string, number> = {}
+      const aboves: Record<string, boolean> = {}
+      MATRIX_PERIODS.forEach(({ key }) => {
+        const aggP = gpsAgg[key].find((a: any) => a.id === pl.id)
+        const last = aggP?.agg[aggP.agg.length - 1] as any
+        const v = last ? getVal(last, matrixMetricKey) : 0
+        vals[key] = v
+        // group avg for this period
+        const groupPlayers = gpsAgg[key].filter((a: any) => POS_GROUPS[posGroup].includes(a.position))
+        const avg = groupPlayers.length
+          ? groupPlayers.reduce((s: number, a: any) => {
+              const l = a.agg[a.agg.length - 1] as any
+              return s + (l ? getVal(l, matrixMetricKey) : 0)
+            }, 0) / groupPlayers.length
+          : 0
+        aboves[key] = v > avg
+      })
+      return { ...pl, posGroup, vals, aboves }
+    }).sort((a, b) => b.vals.daily - a.vals.daily)
+  }, [players, matrixMetricKey, gpsAgg])
+
+  /* ── Conditioning ── */
+  const condAggPlayers = useMemo(() =>
+    players.map(p => ({ ...p, agg: aggregateCondData(p.conditioningData, condPeriod) })),
+    [players, condPeriod]
+  )
+  const activeCondMetric = COND_METRICS.find(m => m.key === condMetricKey) ?? COND_METRICS[0]
+  const condLatestVals = useMemo(() =>
+    condAggPlayers.map(p => {
+      const last = p.agg[p.agg.length - 1] as unknown as Record<string, number>
+      return { id: p.id, name: p.name, pos: p.position, photo: p.photo, value: last ? getVal(last, condMetricKey) : 0 }
+    }).sort((a, b) =>
+      condMetricKey === 'bodyFatPct' || condMetricKey === 'hrResting' ? a.value - b.value : b.value - a.value
+    ),
+    [condAggPlayers, condMetricKey]
+  )
+  const condTrendData = useMemo(() => {
+    const keys = [...new Set(condAggPlayers.flatMap(p => p.agg.map(d => d.date)))].sort()
+    return keys.map(date => {
+      const row: Record<string, unknown> = { date }
+      condAggPlayers.forEach(p => {
+        const d = p.agg.find(x => x.date === date) as unknown as Record<string, number> | undefined
+        row[p.id] = d ? getVal(d, condMetricKey) : null
+      })
+      return row
+    })
+  }, [condAggPlayers, condMetricKey])
+
+  /* ════════════════════
+     CONDITIONING RENDER
+  ════════════════════ */
+  if (!isGps) {
+    const periodLabel = MATRIX_PERIODS.find(p => p.key === condPeriod)?.label ?? ''
+    return (
+      <div className="space-y-4">
+        {/* Header with period selector */}
+        <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+          <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
+            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>コンディショニング比較</span>
+            <div className="flex items-center gap-1 ml-auto">
+              {MATRIX_PERIODS.map(p => (
+                <button key={p.key} onClick={() => setCondPeriod(p.key)}
+                  className="px-3 py-1 text-xs font-bold transition-all"
+                  style={condPeriod === p.key
+                    ? { color: '#fff', backgroundColor: '#2563eb', borderRadius: 2 }
+                    : { color: '#999', backgroundColor: 'transparent', borderRadius: 2 }}>
+                  {p.label}
+                </button>
+              ))}
             </div>
           </div>
-        </>
-      )}
+        </div>
 
-      {/* Metric selector (hidden for session+GPS) */}
-      {!(period === 'session' && isGps) && (
+        {/* Metric selector */}
         <div className="flex flex-wrap gap-2">
-          {metrics.map(m => (
-            <button key={m.key} onClick={() => setMetricKey(m.key)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium border transition-all"
-              style={effectiveKey === m.key
-                ? { color: m.accent, background: m.accent + '12', borderColor: m.accent + '40' }
-                : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent' }}>
+          {COND_METRICS.map(m => (
+            <button key={m.key} onClick={() => setCondMetricKey(m.key)}
+              className="px-3 py-1.5 text-xs font-medium border transition-all"
+              style={condMetricKey === m.key
+                ? { color: m.accent, background: m.accent + '12', borderColor: m.accent + '40', borderRadius: 4 }
+                : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
               {m.label}
             </button>
           ))}
         </div>
-      )}
 
-      {/* FP / GK average cards: 2-column, FP left GK right, ABOVE rankings */}
-      {isGps && (
-        <div className="grid grid-cols-2 gap-3">
-          {(['FP', 'GK'] as DisplayPos[]).map(pos => (
-            <div key={pos} className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-              <div className="px-4 py-2 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
-                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>{pos}</span>
-                <span className="text-xs font-normal" style={{ color: '#888' }}>平均</span>
-                <span className="w-2 h-2 rounded-full ml-auto flex-shrink-0" style={{ backgroundColor: GROUP_COLORS[pos] }} />
-              </div>
-              <div className="flex gap-3 flex-wrap p-3">
-                {GPS_METRICS.map(m => {
-                  const val = posMetricAvgs[pos]?.[m.key] ?? 0
-                  return (
-                    <div key={m.key} className="text-center min-w-[60px]">
-                      <div className="text-[9px] text-slate-400 whitespace-nowrap leading-tight">{m.label}</div>
-                      <div className="text-sm font-bold text-slate-800">{val.toLocaleString()}</div>
-                      <div className="text-[8px] text-slate-400">{m.unit}</div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Dual ranking: totalDistance + HSR */}
-      {isGps ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            { title: '総走行距離 ランキング', ranking: totalDistRanking, unit: 'm', accent: '#3b82f6' },
-            { title: 'HSR（20km/h+）ランキング', ranking: hsrRanking, unit: 'm', accent: '#ef4444' },
-          ].map(({ title, ranking, unit }) => {
-            const maxVal = ranking[0]?.value ?? 1
-            const gkPlayers = ranking.filter((p: any) => p.pos === 'GK')
-            const fpPlayers = ranking.filter((p: any) => p.pos !== 'GK')
-            const gkAvg = gkPlayers.length ? gkPlayers.reduce((s: number, p: any) => s + p.value, 0) / gkPlayers.length : 0
-            const fpAvg = fpPlayers.length ? fpPlayers.reduce((s: number, p: any) => s + p.value, 0) / fpPlayers.length : 0
-            const gkAvgPct = (gkAvg / maxVal) * 100
-            const fpAvgPct = (fpAvg / maxVal) * 100
-            return (
-              <div key={title} className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-                <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
-                  <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>{title}</h3>
-                </div>
-                {/* Average legend */}
-                <div className="flex gap-3 mb-3 text-[10px] px-5 pt-3">
-                  <span className="flex items-center gap-1 text-slate-500">
-                    <span className="inline-block w-4 h-px border-t-2 border-dashed" style={{ borderColor: '#6366f1' }} />
-                    FP平均 <span className="font-bold text-slate-800">{Math.round(fpAvg).toLocaleString()}</span> {unit}
-                  </span>
-                  <span className="flex items-center gap-1 text-slate-500">
-                    <span className="inline-block w-4 h-px border-t-2 border-dashed" style={{ borderColor: '#f59e0b' }} />
-                    GK平均 <span className="font-bold text-slate-800">{Math.round(gkAvg).toLocaleString()}</span> {unit}
-                  </span>
-                </div>
-                <div className="space-y-1 max-h-80 overflow-y-auto pr-1 px-5 pb-4" style={{ scrollbarWidth: 'none' }}>
-                  {ranking.map((d: any, rank: number) => {
-                    const isGK = d.pos === 'GK'
-                    const groupAvg = isGK ? gkAvg : fpAvg
-                    const aboveAvg = d.value > groupAvg
-                    const highlightColor = isGK ? '#f59e0b' : '#6366f1'
-                    const barBg = aboveAvg ? highlightColor + '25' : '#e2e8f0'
-                    const barBorder = aboveAvg ? highlightColor : '#cbd5e1'
-                    const pct = maxVal > 0 ? (d.value / maxVal) * 100 : 0
-                    return (
-                      <div key={d.id} className="flex items-center gap-2">
-                        <span className="text-xs w-5 text-right flex-shrink-0 font-bold"
-                          style={{ color: rank < 3 ? '#f59e0b' : '#cbd5e1' }}>{rank + 1}</span>
-                        <img src={d.photo} alt={d.name}
-                          className="w-5 h-5 rounded-full object-cover flex-shrink-0 border border-slate-200"
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                        <span className="text-xs w-32 flex-shrink-0 truncate font-medium text-slate-800">{d.name}</span>
-                        <span className="text-[10px] w-6 flex-shrink-0 font-medium"
-                          style={{ color: aboveAvg ? highlightColor : '#94a3b8' }}>{d.pos}</span>
-                        <div className="flex-1 h-4 rounded-sm overflow-hidden bg-slate-100 relative">
-                          <div className="h-full rounded-sm transition-all"
-                            style={{ width: `${pct}%`, backgroundColor: barBg, borderRight: `2px solid ${barBorder}` }} />
-                          {/* FP average line */}
-                          <div className="absolute top-0 bottom-0 w-px"
-                            style={{ left: `${fpAvgPct}%`, backgroundColor: '#6366f1', opacity: 0.6 }} />
-                          {/* GK average line */}
-                          <div className="absolute top-0 bottom-0 w-px"
-                            style={{ left: `${gkAvgPct}%`, backgroundColor: '#f59e0b', opacity: 0.6 }} />
-                        </div>
-                        <span className="text-xs w-16 text-right flex-shrink-0 font-bold"
-                          style={{ color: aboveAvg ? highlightColor : '#1e293b' }}>
-                          {d.value.toLocaleString()}
-                          <span className="font-normal text-slate-400 ml-0.5">{unit}</span>
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      ) : (
+        {/* Ranking */}
         <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
           <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
             <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
-              {activeM.label} ランキング（全{players.length}名）
+              {activeCondMetric.label} ランキング {periodLabel}（全{players.length}名）
             </h3>
           </div>
           <div className="p-5">
-          <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
-            {latestVals.map((d, rank) => {
-              const color = POSITION_COLORS[d.pos]
-              const max = latestVals[0].value
-              const pct = max > 0 ? (d.value / max) * 100 : 0
-              return (
-                <div key={d.id} className="flex items-center gap-2">
-                  <span className="text-xs w-5 text-right flex-shrink-0"
-                    style={{ color: rank < 3 ? '#f59e0b' : '#cbd5e1' }}>{rank + 1}</span>
-                  <img src={d.photo} alt={d.name}
-                    className="w-5 h-5 rounded-full object-cover flex-shrink-0 border border-slate-200"
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                  <span className="text-xs w-32 flex-shrink-0 truncate font-medium text-slate-800">{d.name}</span>
-                  <span className="text-xs w-6 flex-shrink-0 text-slate-600">{d.pos}</span>
-                  <div className="flex-1 h-4 rounded-sm overflow-hidden bg-slate-100">
-                    <div className="h-full rounded-sm"
-                      style={{ width: `${pct}%`, backgroundColor: color + '30', borderRight: `1.5px solid ${color}` }} />
+            <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
+              {condLatestVals.map((d, rank) => {
+                const color = POSITION_COLORS[d.pos]
+                const max = condLatestVals[0].value
+                const pct = max > 0 ? (d.value / max) * 100 : 0
+                return (
+                  <div key={d.id} className="flex items-center gap-2">
+                    <span className="text-xs w-5 text-right flex-shrink-0"
+                      style={{ color: rank < 3 ? '#f59e0b' : '#cbd5e1' }}>{rank + 1}</span>
+                    <img src={d.photo} alt={d.name}
+                      className="w-5 h-5 rounded-full object-cover flex-shrink-0 border border-slate-200"
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                    <span className="text-xs w-32 flex-shrink-0 truncate font-medium text-slate-800">{d.name}</span>
+                    <span className="text-xs w-6 flex-shrink-0 text-slate-600">{d.pos}</span>
+                    <div className="flex-1 h-4 overflow-hidden bg-slate-100" style={{ borderRadius: 2 }}>
+                      <div className="h-full"
+                        style={{ width: `${pct}%`, backgroundColor: color + '30', borderRight: `1.5px solid ${color}` }} />
+                    </div>
+                    <span className="text-xs w-16 text-right flex-shrink-0 font-bold text-slate-800">
+                      {typeof d.value === 'number' ? d.value.toLocaleString() : d.value}
+                      <span className="font-normal text-slate-400 ml-0.5">{activeCondMetric.unit}</span>
+                    </span>
                   </div>
-                  <span className="text-xs w-16 text-right flex-shrink-0 font-bold text-slate-800">
-                    {typeof d.value === 'number' ? d.value.toLocaleString() : d.value}
-                    <span className="font-normal text-slate-400 ml-0.5">{activeM.unit}</span>
-                  </span>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
           </div>
         </div>
-      )}
 
-      {/* Trend chart (non-session periods) */}
-      {period !== 'session' && (
+        {/* Trend chart */}
         <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
           <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
             <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
-              {activeM.label} トレンド（全選手）</h3>
+              {activeCondMetric.label} トレンド {periodLabel}
+            </h3>
           </div>
           <div className="p-5">
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={trendData}>
-              <CartesianGrid {...CHART.grid} />
-              <XAxis dataKey="date" tickFormatter={v => formatPeriodLabel(v, period)} {...CHART.axis} />
-              <YAxis {...CHART.axis} />
-              <Tooltip
-                {...CHART.tooltip}
-                formatter={(v, name) => {
-                  const p = players.find(p => p.id === name)
-                  return [`${Number(v).toLocaleString()} ${activeM.unit}`, p?.name ?? name]
-                }}
-                labelFormatter={l => formatPeriodLabel(l, period)}
-              />
-              {players.map(p => (
-                <Line key={p.id} type="monotone" dataKey={p.id}
-                  stroke={POSITION_COLORS[p.position] + '80'}
-                  strokeWidth={1} dot={false}
-                  activeDot={{ r: 3, fill: POSITION_COLORS[p.position], strokeWidth: 0 }}
-                  connectNulls
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={condTrendData}>
+                <CartesianGrid {...CHART.grid} />
+                <XAxis dataKey="date" tickFormatter={v => formatPeriodLabel(v, condPeriod)} {...CHART.axis} />
+                <YAxis {...CHART.axis} />
+                <Tooltip
+                  {...CHART.tooltip}
+                  formatter={(v, name) => {
+                    const p = players.find(p => p.id === name)
+                    return [`${Number(v).toLocaleString()} ${activeCondMetric.unit}`, p?.name ?? name]
+                  }}
+                  labelFormatter={l => formatPeriodLabel(l, condPeriod)}
                 />
-              ))}
-              {DISPLAY_POSITIONS.map(pos => (
-                <Line key={`leg-${pos}`} type="monotone" dataKey={`__${pos}__`}
-                  stroke={GROUP_COLORS[pos]} strokeWidth={2} dot={false} name={pos} />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-          <div className="flex gap-3 mt-2 justify-center">
-            {DISPLAY_POSITIONS.map(pos => (
-              <div key={pos} className="flex items-center gap-1.5">
-                <div className="w-3 h-0.5 rounded-full" style={{ backgroundColor: GROUP_COLORS[pos] }} />
-                <span className="text-xs text-slate-400">{pos}</span>
-              </div>
-            ))}
-          </div>
+                {players.map(p => (
+                  <Line key={p.id} type="monotone" dataKey={p.id}
+                    stroke={POSITION_COLORS[p.position] + '80'}
+                    strokeWidth={1} dot={false}
+                    activeDot={{ r: 3, fill: POSITION_COLORS[p.position], strokeWidth: 0 }}
+                    connectNulls />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
-      )}
+      </div>
+    )
+  }
 
-      {/* Session player cards (session+GPS only) */}
-      {period === 'session' && isGps && (
-        <SessionDaySummary aggPlayers={aggPlayers} metrics={GPS_METRICS} selectedDate={selectedSessionDate} />
-      )}
+  /* ════════════════════
+     GPS RENDER
+  ════════════════════ */
+  return (
+    <div className="space-y-4">
 
-      {/* All players data table (GPS only) */}
-      {isGps && (
-        <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-          <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
-            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>全選手 GPS データ一覧</h3>
-            <span className="text-[10px]" style={{ color: '#888' }}>ポジション平均以上のセルを強調表示</span>
+      {/* ── View tab: セッション | 比較マトリクス ── */}
+      <div className="flex items-center gap-0" style={{ border: '1px solid #3a3a3a', borderRadius: 4, overflow: 'hidden', display: 'inline-flex' }}>
+        {([
+          { key: 'session' as const, label: 'セッション' },
+          { key: 'matrix'  as const, label: '比較マトリクス' },
+        ]).map(v => (
+          <button key={v.key} onClick={() => setCompView(v.key)}
+            className="px-4 py-1.5 text-xs font-bold transition-all"
+            style={compView === v.key
+              ? { backgroundColor: '#2563eb', color: '#fff' }
+              : { backgroundColor: '#1a1a1a', color: '#aaa' }}>
+            {v.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ════════ SESSION VIEW ════════ */}
+      {compView === 'session' && (
+        <>
+          {/* Session info (left) + Session selector (right) — side by side */}
+          <div className="grid gap-3" style={{ gridTemplateColumns: '200px 1fr' }}>
+
+            {/* Session info */}
+            <div className="bg-white border border-slate-200 overflow-hidden flex flex-col" style={{ borderRadius: 0 }}>
+              <div className="px-3 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>セッション情報</p>
+              </div>
+              <div className="p-3 flex flex-col gap-2 flex-1">
+                <div>
+                  <p className="text-[10px] text-slate-400">日時</p>
+                  <p className="text-xs font-bold text-slate-800">{sessionInfoDate || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 mb-0.5">種別</p>
+                  {sessionIsMatch
+                    ? <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#2563eb', borderRadius: 2 }}>⚽ 試合</span>
+                    : <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#1a1a1a', borderRadius: 2 }}>🏃 練習</span>
+                  }
+                </div>
+                {sessionIsMatch && sessionOpponent && (
+                  <>
+                    <div>
+                      <p className="text-[10px] text-slate-400">対戦相手</p>
+                      <p className="text-xs font-bold text-slate-800">
+                        {sessionVenue === 'H' ? '🏠' : '✈️'} {sessionOpponent}
+                        <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5"
+                          style={sessionVenue === 'H' ? { color: '#fff', background: '#1e6fad', borderRadius: 2 } : { color: '#fff', background: '#5b21b6', borderRadius: 2 }}>
+                          {sessionVenue === 'H' ? 'HOME' : 'AWAY'}
+                        </span>
+                      </p>
+                    </div>
+                    {sessionScore && (
+                      <div>
+                        <p className="text-[10px] text-slate-400">スコア</p>
+                        <p className="text-xs font-bold text-slate-800">{sessionScore}</p>
+                      </div>
+                    )}
+                  </>
+                )}
+                <div className="mt-auto">
+                  <p className="text-[10px] text-slate-400">データ</p>
+                  <p className="text-sm font-bold text-slate-800">{sessionPlayersOnDate.length}<span className="text-xs font-normal text-slate-400 ml-0.5">名</span></p>
+                </div>
+              </div>
+            </div>
+
+            {/* Session selector */}
+            <div className="bg-white border border-slate-200 overflow-hidden flex flex-col" style={{ borderRadius: 0 }}>
+              <div className="px-3 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>セッション選択</p>
+              </div>
+              <div className="p-3 flex flex-col flex-1">
+                {/* Month tabs */}
+                <div className="flex gap-1 flex-wrap mb-2">
+                  {allSessionMonths.map(m => {
+                    const mNum = parseInt(m.slice(5))
+                    const isSel = selectedSessionMonth === m
+                    return (
+                      <button key={m} onClick={() => setSelectedSessionMonth(m)}
+                        className="px-4 py-1.5 text-sm font-bold border transition-all"
+                        style={isSel
+                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                          : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                        {mNum}月
+                      </button>
+                    )
+                  })}
+                </div>
+                {/* Day pills */}
+                <div className="grid grid-cols-7 gap-1 overflow-y-auto flex-1" style={{ maxHeight: 110, scrollbarWidth: 'none' }}>
+                  {monthSessionDates.map(d => {
+                    const dt = new Date(d)
+                    const isMatch = gpsAgg.session.some((p: any) => p.agg.find((s: any) => s.date === d && s.sessionType === 'match'))
+                    const isSel = selectedSessionDate === d
+                    return (
+                      <button key={d} onClick={() => setSelectedSessionDate(d)}
+                        className="flex items-center justify-center gap-0.5 py-0.5 text-[9px] font-medium border transition-all"
+                        style={isSel
+                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                          : isMatch
+                            ? { color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5', borderRadius: 3 }
+                            : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                        {isMatch && <span style={{ fontSize: 9 }}>⚽</span>}
+                        {dt.getDate()}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="flex items-center gap-3 mt-2">
+                  <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                    <span className="inline-block w-2 h-2 rounded-sm bg-white border border-slate-200" />練習
+                  </span>
+                  <span className="flex items-center gap-1 text-[10px] text-red-400">
+                    <span style={{ fontSize: 9 }}>⚽</span>試合
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="overflow-x-auto p-4">
-            <table className="text-xs border-collapse" style={{ tableLayout: 'fixed', width: '100%', minWidth: 900 }}>
-              <colgroup>
-                <col style={{ width: 140 }} />
-                <col style={{ width: 44 }} />
-                {GPS_METRICS.map(m => <col key={m.key} style={{ width: 72 }} />)}
-                {ZONE_COLS.map(z => <col key={z.key} style={{ width: 72 }} />)}
-              </colgroup>
-              <thead>
-                <tr style={{ backgroundColor: '#2a2a2a' }}>
-                  <th className="text-left py-2 pr-3 font-bold sticky left-0" style={{ color: '#ccc', backgroundColor: '#2a2a2a', fontSize: 11 }}>選手</th>
-                  <th className="text-center py-2 px-1 font-bold" style={{ color: '#ccc', fontSize: 11 }}>POS</th>
-                  {GPS_METRICS.map(m => {
-                    const active = tableSort.key === m.key
-                    return (
-                      <th key={m.key}
-                        className="text-right py-2 px-1 font-bold leading-tight cursor-pointer select-none"
-                        style={{ color: active ? '#fff' : '#aaa', fontSize: 11, backgroundColor: active ? '#2563eb' : undefined }}
-                        onClick={() => handleTableSort(m.key)}>
-                        <div className="break-words hyphens-auto">{m.label}</div>
-                        <div className="flex items-center justify-end gap-0.5 mt-0.5">
-                          <span className="font-normal" style={{ fontSize: 9, color: active ? '#ffccc' : '#666' }}>{m.unit}</span>
-                          <span style={{ fontSize: 10, color: active ? '#fff' : '#555' }}>
-                            {active ? (tableSort.dir === 'desc' ? '↓' : '↑') : '↕'}
-                          </span>
-                        </div>
+
+          {/* FP/GK avg cards */}
+          {renderPosCards(sessionPosAvgs)}
+
+          {/* Rankings */}
+          <RankingPair
+            leftTitle="総走行距離 ランキング" leftRanking={sessionDistRank} leftUnit="m"
+            leftFpAvg={getGroupAvg(sessionDistRank, 'FP')} leftGkAvg={getGroupAvg(sessionDistRank, 'GK')}
+            rightTitle="HSR（20km/h+）ランキング" rightRanking={sessionHsrRank} rightUnit="m"
+            rightFpAvg={getGroupAvg(sessionHsrRank, 'FP')} rightGkAvg={getGroupAvg(sessionHsrRank, 'GK')}
+          />
+
+          {/* Player cards */}
+          <SessionDaySummary aggPlayers={gpsAgg.session} selectedDate={selectedSessionDate} />
+        </>
+      )}
+
+      {/* ════════ MATRIX VIEW ════════ */}
+      {compView === 'matrix' && (
+        <>
+          {/* Period selector + metric selector in header */}
+          <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+            <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>比較マトリクス</span>
+              <div className="flex items-center gap-1 ml-auto">
+                {MATRIX_PERIODS.map(p => (
+                  <button key={p.key} onClick={() => setMatrixPeriod(p.key)}
+                    className="px-3 py-1 text-xs font-bold transition-all"
+                    style={matrixPeriod === p.key
+                      ? { color: '#fff', backgroundColor: '#2563eb', borderRadius: 2 }
+                      : { color: '#999', backgroundColor: 'transparent', borderRadius: 2 }}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Metric selector */}
+          <div className="flex flex-wrap gap-2">
+            {GPS_METRICS.map(m => (
+              <button key={m.key} onClick={() => setMatrixMetricKey(m.key)}
+                className="px-3 py-1.5 text-xs font-medium border transition-all"
+                style={matrixMetricKey === m.key
+                  ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
+                  : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Comparison matrix: player × period */}
+          <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+            <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
+                {matrixMetric.label}（{matrixMetric.unit}）　選手別・期間比較
+              </span>
+              <span className="text-[10px]" style={{ color: '#888' }}>ポジション平均以上を強調</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="text-xs border-collapse w-full" style={{ minWidth: 480 }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#2a2a2a' }}>
+                    <th className="text-left py-2 px-3 font-bold sticky left-0"
+                      style={{ color: '#ccc', backgroundColor: '#2a2a2a', fontSize: 11, minWidth: 140 }}>選手</th>
+                    <th className="text-center py-2 px-2 font-bold" style={{ color: '#ccc', fontSize: 11, width: 50 }}>POS</th>
+                    {MATRIX_PERIODS.map(p => (
+                      <th key={p.key} className="text-right py-2 px-3 font-bold" style={{ color: '#ccc', fontSize: 11, width: 110 }}>
+                        {p.label}最新
                       </th>
-                    )
-                  })}
-                  {ZONE_COLS.map(z => {
-                    const active = tableSort.key === z.key
-                    return (
-                      <th key={z.key}
-                        className="text-right py-2 px-1 font-bold leading-tight cursor-pointer select-none"
-                        style={{ color: active ? '#fff' : '#aaa', fontSize: 11, backgroundColor: active ? '#2563eb' : undefined }}
-                        onClick={() => handleTableSort(z.key)}>
-                        <div className="break-words">{z.label}</div>
-                        <div className="flex items-center justify-end gap-0.5 mt-0.5">
-                          <span className="font-normal" style={{ fontSize: 9, color: active ? '#fcc' : '#666' }}>m</span>
-                          <span style={{ fontSize: 10, color: active ? '#fff' : '#555' }}>
-                            {active ? (tableSort.dir === 'desc' ? '↓' : '↑') : '↕'}
-                          </span>
-                        </div>
-                      </th>
-                    )
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {[...aggPlayers].sort((a: any, b: any) => {
-                  const aLast = a.agg[a.agg.length - 1] as any
-                  const bLast = b.agg[b.agg.length - 1] as any
-                  const aVal = getVal(aLast, tableSort.key)
-                  const bVal = getVal(bLast, tableSort.key)
-                  return tableSort.dir === 'desc' ? bVal - aVal : aVal - bVal
-                }).map((p: any) => {
-                  const last = p.agg[p.agg.length - 1] as any
-                  const posGroup = (POS_GROUPS['GK'] as string[]).includes(p.position) ? 'GK' : 'FP'
-                  const groupAvgs = posMetricAvgs[posGroup] ?? {}
-                  return (
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* GK group */}
+                  <tr>
+                    <td colSpan={5} className="py-1 px-3 text-[10px] font-bold uppercase tracking-wider"
+                      style={{ backgroundColor: '#f59e0b15', color: '#f59e0b' }}>GK</td>
+                  </tr>
+                  {matrixRows.filter(p => p.posGroup === 'GK').map(p => (
                     <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                      <td className="py-1.5 pr-2 sticky left-0 bg-white">
+                      <td className="py-1.5 px-3 sticky left-0 bg-white">
                         <div className="flex items-center gap-1.5">
                           <img src={p.photo} alt={p.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
                             onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                           <span className="font-medium text-slate-800 truncate">{p.name}</span>
                         </div>
                       </td>
-                      <td className="text-center py-1.5 px-1">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">
-                          {p.position}
-                        </span>
+                      <td className="text-center py-1.5 px-2">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">{p.position}</span>
                       </td>
-                      {GPS_METRICS.map(m => {
-                        const val = last ? (getVal(last, m.key) || 0) : 0
-                        const avg = groupAvgs[m.key] ?? 0
-                        const aboveAvg = avg > 0 && val > avg
+                      {MATRIX_PERIODS.map(({ key }) => {
+                        const v = p.vals[key]
+                        const above = p.aboves[key]
                         return (
-                          <td key={m.key} className="text-right py-1.5 px-1 font-semibold tabular-nums"
-                            style={aboveAvg
-                              ? { color: m.accent, background: m.accent + '10' }
-                              : { color: '#1e293b' }}>
-                            {val.toLocaleString()}
-                          </td>
-                        )
-                      })}
-                      {ZONE_COLS.map(z => {
-                        const val = last ? (getVal(last, z.key) || 0) : 0
-                        return (
-                          <td key={z.key} className="text-right py-1.5 px-1 tabular-nums text-slate-700">
-                            {val.toLocaleString()}
+                          <td key={key} className="text-right py-1.5 px-3 font-semibold tabular-nums"
+                            style={above ? { color: matrixMetric.accent, background: matrixMetric.accent + '12' } : { color: '#1e293b' }}>
+                            {v.toLocaleString()}
                           </td>
                         )
                       })}
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                  ))}
+                  {/* FP group */}
+                  <tr>
+                    <td colSpan={5} className="py-1 px-3 text-[10px] font-bold uppercase tracking-wider"
+                      style={{ backgroundColor: '#6366f115', color: '#6366f1' }}>FP（DF / MF / FW）</td>
+                  </tr>
+                  {matrixRows.filter(p => p.posGroup === 'FP').map(p => (
+                    <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                      <td className="py-1.5 px-3 sticky left-0 bg-white">
+                        <div className="flex items-center gap-1.5">
+                          <img src={p.photo} alt={p.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                          <span className="font-medium text-slate-800 truncate">{p.name}</span>
+                        </div>
+                      </td>
+                      <td className="text-center py-1.5 px-2">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">{p.position}</span>
+                      </td>
+                      {MATRIX_PERIODS.map(({ key }) => {
+                        const v = p.vals[key]
+                        const above = p.aboves[key]
+                        return (
+                          <td key={key} className="text-right py-1.5 px-3 font-semibold tabular-nums"
+                            style={above ? { color: matrixMetric.accent, background: matrixMetric.accent + '12' } : { color: '#1e293b' }}>
+                            {v.toLocaleString()}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+
+          {/* FP/GK avg cards (for selected matrixPeriod) */}
+          {renderPosCards(matrixPosAvgs)}
+
+          {/* Rankings (for selected matrixPeriod) */}
+          <RankingPair
+            leftTitle={`総走行距離 ランキング（${MATRIX_PERIODS.find(p => p.key === matrixPeriod)?.label}）`}
+            leftRanking={matrixDistRank} leftUnit="m"
+            leftFpAvg={getGroupAvg(matrixDistRank, 'FP')} leftGkAvg={getGroupAvg(matrixDistRank, 'GK')}
+            rightTitle={`HSR（20km/h+）ランキング（${MATRIX_PERIODS.find(p => p.key === matrixPeriod)?.label}）`}
+            rightRanking={matrixHsrRank} rightUnit="m"
+            rightFpAvg={getGroupAvg(matrixHsrRank, 'FP')} rightGkAvg={getGroupAvg(matrixHsrRank, 'GK')}
+          />
+
+          {/* All-players GPS table */}
+          {renderGpsTable(gpsAgg[matrixPeriod], matrixPosAvgs)}
+        </>
       )}
     </div>
   )

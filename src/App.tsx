@@ -80,7 +80,8 @@ export default function App() {
 
           <div className="w-px h-5" style={{ backgroundColor: '#444' }} />
 
-          {/* Period */}
+          {/* Period (individual mode only) */}
+          {viewMode === 'individual' && (
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium" style={{ color: '#888' }}>期間</span>
             <div className="flex items-center rounded gap-0.5 p-0.5" style={{ backgroundColor: '#111' }}>
@@ -95,6 +96,7 @@ export default function App() {
               ))}
             </div>
           </div>
+          )}
         </div>
       </div>
 
@@ -192,7 +194,7 @@ export default function App() {
               : <ConditioningView data={condData} period={period} player={player} />}
           </>
         ) : (
-          <ComparisonView players={players} period={period} dataTab={dataTab} />
+          <ComparisonView players={players} dataTab={dataTab} />
         )}
       </main>
     </div>
