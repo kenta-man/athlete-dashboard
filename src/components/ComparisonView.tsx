@@ -225,6 +225,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
   const [matrixPeriod, setMatrixPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [selectedMatrixKeys, setSelectedMatrixKeys] = useState<Set<string>>(new Set())
   const [matrixMonthFilter, setMatrixMonthFilter] = useState<Set<string>>(new Set())
+  const [selectedMatrixPlayers, setSelectedMatrixPlayers] = useState<Set<string>>(new Set())
   // Reset key selection when period changes
   useEffect(() => {
     setSelectedMatrixKeys(new Set())
@@ -300,6 +301,20 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
     })
     return result
   }, [filteredMatrixKeys, gpsAgg, matrixPeriod, matrixMetricKey])
+
+  // Chart data for selected players in matrix
+  const matrixChartData = useMemo(() =>
+    filteredMatrixKeys.map(k => {
+      const row: Record<string, any> = { date: k, label: formatMatrixKey(k) }
+      selectedMatrixPlayers.forEach(id => {
+        const aggP = gpsAgg[matrixPeriod].find((a: any) => a.id === id)
+        const d = aggP?.agg.find((a: any) => a.date === k) as any
+        row[id] = d ? getVal(d, matrixMetricKey) : null
+      })
+      return row
+    }),
+    [filteredMatrixKeys, selectedMatrixPlayers, gpsAgg, matrixPeriod, matrixMetricKey]
+  )
 
   // All selectable metrics (GPS + Zone)
   const ALL_MATRIX_METRICS = [
@@ -381,6 +396,19 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
   )
   const handleSessionTableSort = (key: string) =>
     setSessionTableSort(prev => prev.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' })
+
+  const sessionTableColAvgs = useMemo(() => {
+    const allCols = [...GPS_METRICS.map(m => m.key), ...ZONE_COLS.map(z => z.key)]
+    const result: Record<DisplayPos, Record<string, number>> = { GK: {}, FP: {} }
+    DISPLAY_POSITIONS.forEach(pos => {
+      const posPlayers = sessionPlayersOnDate.filter((p: any) => POS_GROUPS[pos].includes(p.position))
+      allCols.forEach(key => {
+        const vals = posPlayers.map((p: any) => getVal(p.session ?? {}, key)).filter((v: number) => v > 0)
+        result[pos][key] = vals.length ? vals.reduce((s: number, v: number) => s + v, 0) / vals.length : 0
+      })
+    })
+    return result
+  }, [sessionPlayersOnDate])
 
   /* ── Rankings ── */
   const makeRanking = (aggPlayers: any[], key: string, fromSession = false) =>
@@ -698,11 +726,11 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                 <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>GPSデータ一覧</span>
               </div>
               <div className="overflow-x-auto">
-                <table className="text-xs border-collapse w-full">
+                <table className="text-xs border-collapse">
                   <thead>
                     <tr style={{ backgroundColor: '#2a2a2a' }}>
-                      <th className="text-left py-2 px-3 font-bold sticky left-0 z-10"
-                        style={{ color: '#ccc', backgroundColor: '#2a2a2a', minWidth: 130, whiteSpace: 'nowrap' }}>選手</th>
+                      <th className="text-left py-2 px-2 font-bold sticky left-0 z-10"
+                        style={{ color: '#ccc', backgroundColor: '#2a2a2a', width: 120, minWidth: 120, maxWidth: 120 }}>選手</th>
                       <th className="text-center py-2 px-2 font-bold"
                         style={{ color: '#ccc', width: 44 }}>POS</th>
                       {GPS_METRICS.map(m => {
@@ -719,8 +747,6 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                           </th>
                         )
                       })}
-                      {/* Zone separator */}
-                      <th className="py-2 px-1" style={{ color: '#888', fontSize: 9, whiteSpace: 'nowrap', verticalAlign: 'bottom', borderLeft: '1px solid #444' }}>ZONE別</th>
                       {ZONE_COLS.map(z => {
                         const [line1, line2] = TABLE_HEADER[z.key] ?? [z.label, '']
                         const isSort = sessionTableSort.key === z.key
@@ -744,39 +770,50 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                       return (
                         <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors"
                           style={i % 2 !== 0 ? { backgroundColor: '#f8fafc' } : {}}>
-                          <td className="py-1.5 px-3 sticky left-0 z-10" style={{ backgroundColor: rowBg, whiteSpace: 'nowrap' }}>
-                            <div className="flex items-center gap-1.5">
-                              <img src={p.photo} alt={p.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                          <td className="py-1.5 px-2 sticky left-0 z-10" style={{ backgroundColor: rowBg, width: 120, minWidth: 120, maxWidth: 120 }}>
+                            <div className="flex items-center gap-1" style={{ overflow: 'hidden' }}>
+                              <img src={p.photo} alt={p.name} className="w-4 h-4 rounded-full object-cover flex-shrink-0"
                                 onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                              <span className="font-medium text-slate-800">{p.name}</span>
+                              <span className="font-medium text-slate-800 truncate" style={{ fontSize: 10 }}>{p.name}</span>
                             </div>
                           </td>
                           <td className="text-center py-1.5 px-2">
                             <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">{p.position}</span>
                           </td>
-                          {GPS_METRICS.map(m => {
-                            const val = getVal(s ?? {}, m.key)
-                            const isSort = sessionTableSort.key === m.key
+                          {(() => {
+                            const posGroup: DisplayPos = POS_GROUPS.GK.includes(p.position) ? 'GK' : 'FP'
+                            const hColor = posGroup === 'GK' ? '#f59e0b' : '#2563eb'
+                            const hBg    = posGroup === 'GK' ? '#f59e0b18' : '#2563eb18'
+                            const hUnit  = posGroup === 'GK' ? '#fcd34d' : '#93c5fd'
                             return (
-                              <td key={m.key} className="text-right py-1.5 px-2 tabular-nums font-semibold"
-                                style={{ color: isSort ? '#2563eb' : '#1e293b' }}>
-                                {val.toLocaleString()}
-                                <span className="text-[9px] font-normal text-slate-400 ml-0.5">{m.unit}</span>
-                              </td>
+                              <>
+                                {GPS_METRICS.map(m => {
+                                  const val = getVal(s ?? {}, m.key)
+                                  const avg = sessionTableColAvgs[posGroup][m.key] ?? 0
+                                  const above = val > 0 && avg > 0 && val > avg
+                                  return (
+                                    <td key={m.key} className="text-right py-1.5 px-2 tabular-nums font-semibold"
+                                      style={above ? { color: hColor, background: hBg } : { color: '#1e293b' }}>
+                                      {val.toLocaleString()}
+                                      <span className="text-[9px] font-normal ml-0.5" style={{ color: above ? hUnit : '#94a3b8' }}>{m.unit}</span>
+                                    </td>
+                                  )
+                                })}
+                                {ZONE_COLS.map(z => {
+                                  const val = getVal(s ?? {}, z.key)
+                                  const avg = sessionTableColAvgs[posGroup][z.key] ?? 0
+                                  const above = val > 0 && avg > 0 && val > avg
+                                  return (
+                                    <td key={z.key} className="text-right py-1.5 px-2 tabular-nums font-semibold"
+                                      style={above ? { color: hColor, background: hBg } : { color: '#475569' }}>
+                                      {val.toLocaleString()}
+                                      <span className="text-[9px] font-normal ml-0.5" style={{ color: above ? hUnit : '#94a3b8' }}>m</span>
+                                    </td>
+                                  )
+                                })}
+                              </>
                             )
-                          })}
-                          <td style={{ borderLeft: '1px solid #e2e8f0' }} />
-                          {ZONE_COLS.map(z => {
-                            const val = getVal(s ?? {}, z.key)
-                            const isSort = sessionTableSort.key === z.key
-                            return (
-                              <td key={z.key} className="text-right py-1.5 px-2 tabular-nums font-semibold"
-                                style={{ color: isSort ? '#2563eb' : '#475569' }}>
-                                {val.toLocaleString()}
-                                <span className="text-[9px] font-normal text-slate-400 ml-0.5">m</span>
-                              </td>
-                            )
-                          })}
+                          })()}
                         </tr>
                       )
                     })}
@@ -791,7 +828,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
       {/* ════════ MATRIX VIEW ════════ */}
       {compView === 'matrix' && (
         <>
-          {/* Period selector in header */}
+          {/* Header: 比較マトリクス + 日別/週別/月別 */}
           <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
             <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
               <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>比較マトリクス</span>
@@ -809,35 +846,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
             </div>
           </div>
 
-          {/* Metric selector: GPS metrics + Zone distance buttons */}
-          <div className="bg-white border border-slate-200 p-3 space-y-2" style={{ borderRadius: 0 }}>
-            <div className="flex flex-wrap gap-1.5">
-              {GPS_METRICS.map(m => (
-                <button key={m.key} onClick={() => setMatrixMetricKey(m.key)}
-                  className="px-3 py-1.5 text-xs font-medium border transition-all"
-                  style={matrixMetricKey === m.key
-                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
-                    : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            {/* Zone distance buttons */}
-            <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
-              <span className="text-[10px] text-slate-400 self-center mr-1">ZONE別</span>
-              {ZONE_COLS.map(z => (
-                <button key={z.key} onClick={() => setMatrixMetricKey(z.key)}
-                  className="px-3 py-1.5 text-xs font-medium border transition-all"
-                  style={matrixMetricKey === z.key
-                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
-                    : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
-                  {z.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 表示期間 selector */}
+          {/* 表示期間 selector — TOP */}
           <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
             <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
               <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>表示期間</span>
@@ -908,13 +917,47 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
             )}
           </div>
 
+          {/* Metric selector: GPS metrics + Zone distance buttons — BELOW 表示期間 */}
+          <div className="bg-white border border-slate-200 p-3 space-y-2" style={{ borderRadius: 0 }}>
+            <div className="flex flex-wrap gap-1.5">
+              {GPS_METRICS.map(m => (
+                <button key={m.key} onClick={() => setMatrixMetricKey(m.key)}
+                  className="px-3 py-1.5 text-xs font-medium border transition-all"
+                  style={matrixMetricKey === m.key
+                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
+                    : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
+              <span className="text-[10px] text-slate-400 self-center mr-1">ZONE別</span>
+              {ZONE_COLS.map(z => (
+                <button key={z.key} onClick={() => setMatrixMetricKey(z.key)}
+                  className="px-3 py-1.5 text-xs font-medium border transition-all"
+                  style={matrixMetricKey === z.key
+                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
+                    : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
+                  {z.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Time-series matrix table: player rows × date columns */}
           <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
             <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
               <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
                 {matrixMetric.label}（{matrixMetric.unit}）　推移比較
               </span>
-              <span className="text-[10px]" style={{ color: '#888' }}>ポジション平均以上を強調</span>
+              <span className="text-[10px]" style={{ color: '#888' }}>ポジション平均以上を強調　／　選手名クリックでグラフ表示</span>
+              {selectedMatrixPlayers.size > 0 && (
+                <button onClick={() => setSelectedMatrixPlayers(new Set())}
+                  className="ml-auto text-[10px] px-2 py-0.5 font-bold"
+                  style={{ color: '#60a5fa', borderRadius: 2, border: '1px solid #60a5fa33', background: 'transparent' }}>
+                  選択解除
+                </button>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="text-xs border-collapse" style={{ tableLayout: 'auto' }}>
@@ -965,13 +1008,19 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                         {/* Player rows */}
                         {posPlayers.map(pl => {
                           const aggP = gpsAgg[matrixPeriod].find((a: any) => a.id === pl.id)
+                          const isSelected = selectedMatrixPlayers.has(pl.id)
+                          const selColor = POSITION_COLORS[pl.position]
                           return (
-                            <tr key={pl.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                              <td className="py-1.5 px-3 sticky left-0 bg-white z-10" style={{ whiteSpace: 'nowrap' }}>
+                            <tr key={pl.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors"
+                              style={isSelected ? { backgroundColor: selColor + '12' } : {}}>
+                              <td className="py-1.5 px-3 sticky left-0 z-10 cursor-pointer"
+                                style={{ whiteSpace: 'nowrap', backgroundColor: isSelected ? selColor + '18' : '#fff' }}
+                                onClick={() => setSelectedMatrixPlayers(prev => { const n = new Set(prev); isSelected ? n.delete(pl.id) : n.add(pl.id); return n })}>
                                 <div className="flex items-center gap-1.5">
                                   <img src={pl.photo} alt={pl.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                                    style={isSelected ? { outline: `2px solid ${selColor}`, outlineOffset: 1 } : {}}
                                     onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                                  <span className="font-medium text-slate-800">{pl.name}</span>
+                                  <span className="font-medium" style={{ color: isSelected ? selColor : '#1e293b' }}>{pl.name}</span>
                                 </div>
                               </td>
                               <td className="text-center py-1.5 px-2" style={{ whiteSpace: 'nowrap' }}>
@@ -1001,6 +1050,55 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
               </table>
             </div>
           </div>
+
+          {/* Line chart for selected players */}
+          {selectedMatrixPlayers.size > 0 && (
+            <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+              <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
+                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
+                  {matrixMetric.label} 推移グラフ
+                </span>
+                <div className="flex items-center gap-2 ml-auto flex-wrap">
+                  {[...selectedMatrixPlayers].map(id => {
+                    const pl = players.find(p => p.id === id)
+                    return pl ? (
+                      <span key={id} className="flex items-center gap-1 text-[10px] font-medium"
+                        style={{ color: POSITION_COLORS[pl.position] }}>
+                        <span className="inline-block w-3 h-0.5" style={{ backgroundColor: POSITION_COLORS[pl.position] }} />
+                        {pl.name}
+                      </span>
+                    ) : null
+                  })}
+                </div>
+              </div>
+              <div className="p-4">
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={matrixChartData}>
+                    <CartesianGrid {...CHART.grid} />
+                    <XAxis dataKey="label" {...CHART.axis} />
+                    <YAxis {...CHART.axis} domain={['auto', 'auto']} />
+                    <Tooltip
+                      {...CHART.tooltip}
+                      formatter={(v, name) => {
+                        const pl = players.find(p => p.id === name)
+                        return [`${Number(v).toLocaleString()} ${matrixMetric.unit}`, pl?.name ?? name]
+                      }}
+                    />
+                    {[...selectedMatrixPlayers].map(id => {
+                      const pl = players.find(p => p.id === id)
+                      const color = pl ? POSITION_COLORS[pl.position] : '#94a3b8'
+                      return (
+                        <Line key={id} type="monotone" dataKey={id}
+                          stroke={color} strokeWidth={2} dot={{ r: 3, fill: color, strokeWidth: 0 }}
+                          activeDot={{ r: 5, fill: color, strokeWidth: 0 }}
+                          connectNulls />
+                      )
+                    })}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
