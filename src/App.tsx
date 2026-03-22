@@ -8,6 +8,11 @@ import ComparisonView from './components/ComparisonView'
 type DataTab = 'gps' | 'conditioning'
 type ViewMode = 'individual' | 'comparison'
 
+/* ── Brand colors ── */
+const RED    = '#cc0000'
+const DARK   = '#1a1a1a'
+const DARK2  = '#2a2a2a'
+
 export default function App() {
   const [selectedPlayerId, setSelectedPlayerId] = useState(players[0].id)
   const [viewMode, setViewMode]   = useState<ViewMode>('individual')
@@ -25,28 +30,29 @@ export default function App() {
   }, {})
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f1f5f9' }}>
+    <div className="min-h-screen" style={{ backgroundColor: '#f0f2f5' }}>
 
       {/* ── Header ── */}
-      <header className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20">
+      <header style={{ backgroundColor: DARK, borderBottom: `3px solid ${RED}` }} className="sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between" style={{ height: 52 }}>
+          {/* Logo */}
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #2563eb, #7c3aed)' }}>
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            <div className="w-8 h-8 rounded flex items-center justify-center" style={{ backgroundColor: RED }}>
+              <svg className="w-4.5 h-4.5 text-white" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <span className="text-sm font-bold text-slate-800 tracking-wide">Athlete Analytics</span>
+            <span className="text-sm font-bold tracking-widest uppercase text-white">Athlete Analytics</span>
           </div>
 
-          <div className="flex items-center gap-1 rounded-lg p-1 bg-slate-100">
+          {/* View mode */}
+          <div className="flex items-center gap-0" style={{ border: `1px solid #444`, borderRadius: 4, overflow: 'hidden' }}>
             {(['individual', 'comparison'] as ViewMode[]).map(m => (
               <button key={m} onClick={() => setViewMode(m)}
-                className="px-4 py-1.5 rounded-md text-xs font-semibold transition-all"
+                className="px-4 py-1.5 text-xs font-bold transition-all"
                 style={viewMode === m
-                  ? { background: 'linear-gradient(135deg, #2563eb, #7c3aed)', color: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }
-                  : { color: '#94a3b8', background: 'transparent' }}>
+                  ? { backgroundColor: RED, color: '#fff' }
+                  : { backgroundColor: 'transparent', color: '#aaa' }}>
                 {m === 'individual' ? '個人' : 'チーム比較'}
               </button>
             ))}
@@ -55,33 +61,33 @@ export default function App() {
       </header>
 
       {/* ── Controls Bar ── */}
-      <div className="bg-white border-b border-slate-200">
+      <div style={{ backgroundColor: DARK2, borderBottom: `1px solid #3a3a3a` }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center gap-4">
+          {/* Data tab */}
           <div className="flex items-center gap-1">
             {(['gps', 'conditioning'] as DataTab[]).map(tab => (
               <button key={tab} onClick={() => setDataTab(tab)}
-                className="px-3 py-1.5 rounded-md text-xs font-medium transition-all border"
+                className="px-3 py-1.5 rounded text-xs font-bold transition-all"
                 style={dataTab === tab
-                  ? tab === 'gps'
-                    ? { color: '#2563eb', background: '#eff6ff', borderColor: '#bfdbfe' }
-                    : { color: '#059669', background: '#f0fdf4', borderColor: '#a7f3d0' }
-                  : { color: '#94a3b8', borderColor: 'transparent', background: 'transparent' }}>
+                  ? { backgroundColor: RED, color: '#fff' }
+                  : { color: '#999', background: 'transparent' }}>
                 {tab === 'gps' ? '⚡ GPS' : '🫀 コンディショニング'}
               </button>
             ))}
           </div>
 
-          <div className="w-px h-5 bg-slate-200" />
+          <div className="w-px h-5" style={{ backgroundColor: '#444' }} />
 
+          {/* Period */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-500">期間</span>
-            <div className="flex items-center rounded-lg p-0.5" style={{ background: '#e2e8f0' }}>
+            <span className="text-xs font-medium" style={{ color: '#888' }}>期間</span>
+            <div className="flex items-center rounded gap-0.5 p-0.5" style={{ backgroundColor: '#111' }}>
               {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
                 <button key={p} onClick={() => setPeriod(p)}
-                  className="px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
+                  className="px-3 py-1 rounded text-xs font-bold transition-all"
                   style={period === p
-                    ? { background: '#fff', color: '#1d4ed8', boxShadow: '0 1px 3px rgba(0,0,0,0.14)', fontWeight: 700 }
-                    : { color: '#64748b', background: 'transparent' }}>
+                    ? { backgroundColor: RED, color: '#fff' }
+                    : { color: '#888', background: 'transparent' }}>
                   {PERIOD_LABELS[p]}
                 </button>
               ))}
@@ -92,24 +98,24 @@ export default function App() {
 
       {/* ── Player Selector (individual only) ── */}
       {viewMode === 'individual' && (
-        <div className="bg-white border-b border-slate-200">
+        <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #e5e7eb' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 space-y-2">
             {/* Position filter */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <button onClick={() => setPosFilter('ALL')}
-                className="px-2.5 py-1 rounded text-xs font-medium border transition-all"
+                className="px-2.5 py-1 rounded text-xs font-bold border transition-all"
                 style={posFilter === 'ALL'
-                  ? { color: '#475569', background: '#f1f5f9', borderColor: '#e2e8f0' }
-                  : { color: '#94a3b8', borderColor: 'transparent', background: 'transparent' }}>
-                全員 <span className="text-slate-400">({players.length})</span>
+                  ? { color: '#fff', background: DARK, borderColor: DARK }
+                  : { color: '#999', borderColor: '#e5e7eb', background: 'transparent' }}>
+                全員 <span style={{ opacity: 0.6 }}>({players.length})</span>
               </button>
               {['GK','DF','MF','FW'].map(pos => (
                 <button key={pos} onClick={() => setPosFilter(pos)}
-                  className="px-2.5 py-1 rounded text-xs font-medium border transition-all"
+                  className="px-2.5 py-1 rounded text-xs font-bold border transition-all"
                   style={posFilter === pos
-                    ? { color: POSITION_COLORS[pos], background: POSITION_COLORS[pos] + '15', borderColor: POSITION_COLORS[pos] + '60' }
-                    : { color: '#94a3b8', borderColor: 'transparent', background: 'transparent' }}>
-                  {pos} <span className="opacity-60">({posCounts[pos]})</span>
+                    ? { color: '#fff', background: POSITION_COLORS[pos], borderColor: POSITION_COLORS[pos] }
+                    : { color: '#999', borderColor: '#e5e7eb', background: 'transparent' }}>
+                  {pos} <span style={{ opacity: 0.6 }}>({posCounts[pos]})</span>
                 </button>
               ))}
             </div>
@@ -123,7 +129,7 @@ export default function App() {
                   <button key={p.id} onClick={() => setSelectedPlayerId(p.id)}
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium border transition-all"
                     style={isSelected
-                      ? { color, background: color + '12', borderColor: color + '50', boxShadow: `0 0 0 2px ${color}20` }
+                      ? { color, background: color + '12', borderColor: color + '60', boxShadow: `0 0 0 2px ${color}20` }
                       : { color: '#94a3b8', borderColor: '#e2e8f0', background: 'transparent' }}>
                     <img src={p.photo} alt={p.name}
                       className="w-5 h-5 rounded-full object-cover flex-shrink-0"
@@ -144,7 +150,8 @@ export default function App() {
         {viewMode === 'individual' ? (
           <>
             {/* Player header card */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-5 flex items-center gap-4">
+            <div className="bg-white border border-slate-200 shadow-sm p-4 mb-5 flex items-center gap-4"
+              style={{ borderRadius: 0, borderLeft: `4px solid ${RED}` }}>
               <div className="relative flex-shrink-0">
                 <img src={player.photo} alt={player.name}
                   className="w-16 h-16 rounded-full object-cover ring-4 ring-white shadow-md"
@@ -156,10 +163,10 @@ export default function App() {
                 </span>
               </div>
               <div className="flex-1">
-                <h2 className="text-xl font-bold text-slate-800">{player.name}</h2>
+                <h2 className="text-xl font-bold" style={{ color: DARK }}>{player.name}</h2>
                 <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full"
-                    style={{ color: POSITION_COLORS[player.position], background: POSITION_COLORS[player.position] + '15' }}>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded"
+                    style={{ color: '#fff', background: POSITION_COLORS[player.position] }}>
                     {player.position}
                   </span>
                   <span className="text-xs text-slate-500">生年月日: <span className="font-medium text-slate-700">{player.dob}</span></span>

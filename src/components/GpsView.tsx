@@ -115,8 +115,11 @@ function SessionSummary({ data }: { data: GpsData[] }) {
       <div className="grid gap-3" style={{ gridTemplateColumns: '170px 1fr' }}>
 
         {/* Session Info - left, narrow */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col gap-2">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">セッション情報</p>
+        <div className="bg-white border border-slate-200 overflow-hidden flex flex-col" style={{ borderRadius: 0 }}>
+          <div className="px-3 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>セッション情報</p>
+          </div>
+          <div className="p-3 flex flex-col gap-2 flex-1">
           <div>
             <p className="text-[10px] text-slate-400">日時</p>
             <p className="text-xs font-bold text-slate-800">{s.date}（{dow}）</p>
@@ -128,8 +131,8 @@ function SessionSummary({ data }: { data: GpsData[] }) {
           <div>
             <p className="text-[10px] text-slate-400 mb-0.5">種別</p>
             {isMatch
-              ? <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">⚽ 試合</span>
-              : <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">🏃 練習</span>
+              ? <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#cc0000', borderRadius: 2 }}>⚽ 試合</span>
+              : <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#1a1a1a', borderRadius: 2 }}>🏃 練習</span>
             }
           </div>
           {isMatch && s.opponent && (
@@ -138,8 +141,8 @@ function SessionSummary({ data }: { data: GpsData[] }) {
                 <p className="text-[10px] text-slate-400">対戦相手</p>
                 <p className="text-xs font-bold text-slate-800">
                   {s.venue === 'H' ? '🏠' : '✈️'} {s.opponent}
-                  <span className="ml-1 text-[10px] font-normal px-1 py-0.5 rounded"
-                    style={s.venue === 'H' ? { color: '#2563eb', background: '#eff6ff' } : { color: '#7c3aed', background: '#f5f3ff' }}>
+                  <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5"
+                    style={s.venue === 'H' ? { color: '#fff', background: '#1e6fad', borderRadius: 2 } : { color: '#fff', background: '#5b21b6', borderRadius: 2 }}>
                     {s.venue === 'H' ? 'HOME' : 'AWAY'}
                   </span>
                 </p>
@@ -152,11 +155,15 @@ function SessionSummary({ data }: { data: GpsData[] }) {
               )}
             </>
           )}
+          </div>
         </div>
 
         {/* Session Selector - right */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">セッション選択</p>
+        <div className="bg-white border border-slate-200 overflow-hidden flex flex-col" style={{ borderRadius: 0 }}>
+          <div className="px-3 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>セッション選択</p>
+          </div>
+          <div className="p-3 flex flex-col flex-1">
           {/* Month tabs */}
           <div className="flex gap-1 flex-wrap mb-2">
             {months.map(m => {
@@ -165,12 +172,12 @@ function SessionSummary({ data }: { data: GpsData[] }) {
               const hasCurrentSession = data[idx].date.startsWith(m)
               return (
                 <button key={m} onClick={() => setSelectedMonths(prev => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n })}
-                  className="px-4 py-1.5 rounded-lg text-sm font-bold border transition-all"
+                  className="px-4 py-1.5 text-sm font-bold border transition-all"
                   style={isSel
-                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                    ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000', borderRadius: 3 }
                     : hasCurrentSession
-                      ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
-                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                      ? { color: '#cc0000', background: '#fff0f0', borderColor: '#fca5a5', borderRadius: 3 }
+                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
                   {monthNum}月
                 </button>
               )
@@ -183,14 +190,14 @@ function SessionSummary({ data }: { data: GpsData[] }) {
               const selected = idx === d.idx
               return (
                 <button key={d.date} onClick={() => setIdx(d.idx)}
-                  className="flex items-center justify-center gap-0.5 py-0.5 rounded text-[9px] font-medium border transition-all"
+                  className="flex items-center justify-center gap-0.5 py-0.5 text-[9px] font-medium border transition-all"
                   style={selected
                     ? match
-                      ? { color: '#dc2626', background: '#fef2f2', borderColor: '#fca5a5' }
-                      : { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
+                      ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000', borderRadius: 3 }
+                      : { color: '#fff', background: '#cc0000', borderColor: '#cc0000', borderRadius: 3 }
                     : match
-                      ? { color: '#f87171', borderColor: '#fecaca', background: '#fff5f5' }
-                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                      ? { color: '#cc0000', borderColor: '#fecaca', background: '#fff5f5', borderRadius: 3 }
+                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
                   {match && <span style={{ fontSize: 9 }}>⚽</span>}
                   {d.date.slice(8)}
                 </button>
@@ -200,11 +207,12 @@ function SessionSummary({ data }: { data: GpsData[] }) {
           {/* Legend */}
           <div className="flex items-center gap-3 mt-2">
             <span className="flex items-center gap-1 text-[10px] text-slate-400">
-              <span className="inline-block w-2 h-2 rounded-sm bg-blue-100 border border-blue-300" />練習
+              <span className="inline-block w-2 h-2 rounded-sm bg-red-100 border border-red-300" />練習
             </span>
             <span className="flex items-center gap-1 text-[10px] text-red-400">
               <span style={{ fontSize: 9 }}>⚽</span>試合
             </span>
+          </div>
           </div>
         </div>
       </div>
@@ -387,15 +395,18 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
   return (
     <div className="space-y-4">
       {/* Period selector */}
-      <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
-        {/* Header row: label + 全期間 + count */}
+      <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+        <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>表示期間</p>
+        </div>
+        <div className="p-3 space-y-2">
+        {/* Header row: 全期間 + count */}
         <div className="flex items-center gap-2">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">表示期間</p>
           <button
             onClick={() => { setSelectedKeys(new Set()); setSelectedDailyMonths(new Set()) }}
             className="px-2 py-0.5 rounded text-[11px] font-semibold border transition-all"
             style={selectedKeys.size === 0
-              ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+              ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000' }
               : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
             全期間
           </button>
@@ -430,7 +441,7 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
                     onClick={() => setSelectedDailyMonths(prev => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n })}
                     className="px-3 py-1.5 rounded-lg text-sm font-bold border transition-all"
                     style={isSel
-                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                      ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000' }
                       : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
                     {monthNum}月
                   </button>
@@ -459,9 +470,9 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
                       <button key={d} onClick={() => toggleKey(d)}
                         className="py-0.5 rounded text-[9px] font-medium border transition-all text-center leading-tight"
                         style={isSel
-                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', fontWeight: 700 }
+                          ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000', fontWeight: 700 }
                           : inRange
-                            ? { color: '#2563eb', background: '#eff6ff', borderColor: '#bfdbfe' }
+                            ? { color: '#cc0000', background: '#fff0f0', borderColor: '#fca5a5' }
                             : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
                         {`${mNum}月${dayNum}日`}
                       </button>
@@ -483,9 +494,9 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
                 <button key={k} onClick={() => toggleKey(k)}
                   className="px-2 py-0.5 rounded text-[11px] font-semibold border transition-all"
                   style={isSel
-                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                    ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000' }
                     : inRange
-                      ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
+                      ? { color: '#cc0000', background: '#fff0f0', borderColor: '#fca5a5' }
                       : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
                   {fmt(k)}
                 </button>
@@ -504,9 +515,9 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
                 <button key={k} onClick={() => toggleKey(k)}
                   className="px-2 py-0.5 rounded text-[11px] font-semibold border transition-all"
                   style={isSel
-                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                    ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000' }
                     : inRange
-                      ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
+                      ? { color: '#cc0000', background: '#fff0f0', borderColor: '#fca5a5' }
                       : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
                   {fmt(k)}
                 </button>
@@ -514,6 +525,7 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
             })}
           </div>
         )}
+        </div>
       </div>
 
       {/* KPI Row — averages */}
@@ -715,9 +727,11 @@ export { Kpi }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-      <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-4">{title}</h3>
-      {children}
+    <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+      <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>{title}</h3>
+      </div>
+      <div className="p-5">{children}</div>
     </div>
   )
 }

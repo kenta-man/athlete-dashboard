@@ -71,19 +71,22 @@ function SessionDaySummary({ aggPlayers, metrics, selectedDate }: {
   if (playersOnDate.length === 0) return null
 
   return (
-    <div className="bg-white rounded-xl p-4 border border-slate-200">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+    <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+      <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+        <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>選手別データ</span>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 p-3">
         {playersOnDate.map((p: any) => {
           const s = p.session
           return (
-            <div key={p.id} className="rounded-xl border p-2.5 bg-slate-50 border-slate-200">
+            <div key={p.id} className="border p-2.5 bg-slate-50 border-slate-200" style={{ borderRadius: 0 }}>
               <div className="flex items-center gap-1.5 mb-2">
                 <img src={p.photo} alt={p.name}
                   className="w-6 h-6 rounded-full object-cover border border-slate-200 flex-shrink-0"
                   onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                 <div className="min-w-0">
                   <p className="text-[10px] font-bold truncate text-slate-800">{p.name}</p>
-                  <span className="text-[8px] font-bold px-1 py-0.5 rounded-full bg-slate-100 text-slate-700">{p.position}</span>
+                  <span className="text-[8px] font-bold px-1 py-0.5" style={{ background: '#1a1a1a', color: '#fff', borderRadius: 2 }}>{p.position}</span>
                 </div>
               </div>
               <div className="space-y-0.5">
@@ -242,37 +245,37 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
       {period === 'session' && isGps && (
         <>
           {/* Date picker: month tabs + day pills (oldest left) */}
-          <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
-            <div className="flex gap-1.5 flex-wrap">
+          <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+            <div className="px-3 py-2 flex gap-1.5 flex-wrap" style={{ backgroundColor: '#1a1a1a' }}>
               {allSessionMonths.map(m => {
                 const mNum = parseInt(m.slice(5))
                 const isSel = selectedSessionMonth === m
                 return (
                   <button key={m} onClick={() => setSelectedSessionMonth(m)}
-                    className="px-4 py-1.5 rounded-lg text-sm font-bold border transition-all"
+                    className="px-4 py-1.5 text-sm font-bold border transition-all"
                     style={isSel
-                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
-                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                      ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000', borderRadius: 3 }
+                      : { color: '#aaa', borderColor: '#444', background: 'transparent', borderRadius: 3 }}>
                     {mNum}月
                   </button>
                 )
               })}
             </div>
-            <div className="flex gap-1 flex-wrap">
+            <div className="flex gap-1 flex-wrap p-3">
               {monthSessionDates.map(d => {
                 const dt = new Date(d)
                 const isMatch = aggPlayers.some((p: any) => p.agg.find((s: any) => s.date === d && s.sessionType === 'match'))
                 const isSel = selectedSessionDate === d
                 return (
                   <button key={d} onClick={() => setSelectedSessionDate(d)}
-                    className="px-2 py-0.5 rounded text-[11px] font-semibold border transition-all flex items-center gap-0.5"
+                    className="px-2 py-0.5 text-[11px] font-semibold border transition-all flex items-center gap-0.5"
                     style={isSel
                       ? isMatch
-                        ? { color: '#dc2626', background: '#fef2f2', borderColor: '#fca5a5' }
-                        : { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                        ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000', borderRadius: 3 }
+                        : { color: '#fff', background: '#cc0000', borderColor: '#cc0000', borderRadius: 3 }
                       : isMatch
-                        ? { color: '#f87171', borderColor: '#fecaca', background: '#fff5f5' }
-                        : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                        ? { color: '#cc0000', borderColor: '#fca5a5', background: '#fff5f5', borderRadius: 3 }
+                        : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
                     {isMatch && <span style={{ fontSize: 9 }}>⚽</span>}
                     {dt.getDate()}
                   </button>
@@ -282,8 +285,11 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
           </div>
 
           {/* Session info */}
-          <div className="bg-white rounded-xl border border-slate-200 p-3">
-            <div className="flex items-start gap-4 flex-wrap">
+          <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+            <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+              <span className="text-xs font-bold tracking-widest uppercase" style={{ color: '#aaa' }}>セッション情報</span>
+            </div>
+            <div className="p-3 flex items-start gap-4 flex-wrap">
               <div>
                 <p className="text-[10px] text-slate-400 mb-0.5">日時</p>
                 <p className="text-sm font-bold text-slate-800">{sessionInfoDate}</p>
@@ -291,8 +297,8 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
               <div>
                 <p className="text-[10px] text-slate-400 mb-0.5">種別</p>
                 {sessionIsMatch
-                  ? <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">⚽ 試合</span>
-                  : <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">🏃 練習</span>
+                  ? <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#cc0000', borderRadius: 2 }}>⚽ 試合</span>
+                  : <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#1a1a1a', borderRadius: 2 }}>🏃 練習</span>
                 }
               </div>
               {sessionIsMatch && sessionOpponent && (
@@ -300,8 +306,8 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                   <p className="text-[10px] text-slate-400 mb-0.5">対戦相手</p>
                   <p className="text-xs font-bold text-slate-800">
                     {sessionVenue === 'H' ? '🏠' : '✈️'} {sessionOpponent}
-                    <span className="ml-1 text-[10px] font-normal px-1 py-0.5 rounded"
-                      style={sessionVenue === 'H' ? { color: '#2563eb', background: '#eff6ff' } : { color: '#7c3aed', background: '#f5f3ff' }}>
+                    <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5"
+                      style={sessionVenue === 'H' ? { color: '#fff', background: '#1e6fad', borderRadius: 2 } : { color: '#fff', background: '#5b21b6', borderRadius: 2 }}>
                       {sessionVenue === 'H' ? 'HOME' : 'AWAY'}
                     </span>
                   </p>
@@ -341,12 +347,13 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
       {isGps && (
         <div className="grid grid-cols-2 gap-3">
           {(['FP', 'GK'] as DisplayPos[]).map(pos => (
-            <div key={pos} className="bg-white rounded-xl border border-slate-200 p-3">
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                  style={{ color: GROUP_COLORS[pos], background: GROUP_COLORS[pos] + '15' }}>{pos} 平均</span>
+            <div key={pos} className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+              <div className="px-4 py-2 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
+                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>{pos}</span>
+                <span className="text-xs font-normal" style={{ color: '#888' }}>平均</span>
+                <span className="w-2 h-2 rounded-full ml-auto flex-shrink-0" style={{ backgroundColor: GROUP_COLORS[pos] }} />
               </div>
-              <div className="flex gap-3 flex-wrap">
+              <div className="flex gap-3 flex-wrap p-3">
                 {GPS_METRICS.map(m => {
                   const val = posMetricAvgs[pos]?.[m.key] ?? 0
                   return (
@@ -378,12 +385,12 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
             const gkAvgPct = (gkAvg / maxVal) * 100
             const fpAvgPct = (fpAvg / maxVal) * 100
             return (
-              <div key={title} className="bg-white rounded-xl p-5 border border-slate-200">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</h3>
+              <div key={title} className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+                <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+                  <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>{title}</h3>
                 </div>
                 {/* Average legend */}
-                <div className="flex gap-3 mb-3 text-[10px]">
+                <div className="flex gap-3 mb-3 text-[10px] px-5 pt-3">
                   <span className="flex items-center gap-1 text-slate-500">
                     <span className="inline-block w-4 h-px border-t-2 border-dashed" style={{ borderColor: '#6366f1' }} />
                     FP平均 <span className="font-bold text-slate-800">{Math.round(fpAvg).toLocaleString()}</span> {unit}
@@ -393,7 +400,7 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                     GK平均 <span className="font-bold text-slate-800">{Math.round(gkAvg).toLocaleString()}</span> {unit}
                   </span>
                 </div>
-                <div className="space-y-1 max-h-80 overflow-y-auto pr-1" style={{ scrollbarWidth: 'none' }}>
+                <div className="space-y-1 max-h-80 overflow-y-auto pr-1 px-5 pb-4" style={{ scrollbarWidth: 'none' }}>
                   {ranking.map((d: any, rank: number) => {
                     const isGK = d.pos === 'GK'
                     const groupAvg = isGK ? gkAvg : fpAvg
@@ -436,10 +443,13 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
           })}
         </div>
       ) : (
-        <div className="bg-white rounded-xl p-5 border border-slate-200">
-          <h3 className="text-xs font-semibold mb-4 uppercase tracking-wider text-slate-400">
-            {activeM.label} ランキング（全{players.length}名）
-          </h3>
+        <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+          <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
+              {activeM.label} ランキング（全{players.length}名）
+            </h3>
+          </div>
+          <div className="p-5">
           <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
             {latestVals.map((d, rank) => {
               const color = POSITION_COLORS[d.pos]
@@ -466,15 +476,18 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
               )
             })}
           </div>
+          </div>
         </div>
       )}
 
       {/* Trend chart (non-session periods) */}
       {period !== 'session' && (
-        <div className="bg-white rounded-xl p-5 border border-slate-200">
-          <h3 className="text-xs font-semibold mb-4 uppercase tracking-wider text-slate-400">
-            {activeM.label} トレンド（全選手）
-          </h3>
+        <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+          <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
+              {activeM.label} トレンド（全選手）</h3>
+          </div>
+          <div className="p-5">
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={trendData}>
               <CartesianGrid {...CHART.grid} />
@@ -510,6 +523,7 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
               </div>
             ))}
           </div>
+          </div>
         </div>
       )}
 
@@ -520,12 +534,12 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
 
       {/* All players data table (GPS only) */}
       {isGps && (
-        <div className="bg-white rounded-xl p-5 border border-slate-200">
-          <h3 className="text-xs font-semibold mb-1 uppercase tracking-wider text-slate-400">
-            全選手 GPS データ一覧
-          </h3>
-          <p className="text-[10px] text-slate-400 mb-4">ポジション平均以上のセルを強調表示</p>
-          <div className="overflow-x-auto">
+        <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+          <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
+            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>全選手 GPS データ一覧</h3>
+            <span className="text-[10px]" style={{ color: '#888' }}>ポジション平均以上のセルを強調表示</span>
+          </div>
+          <div className="overflow-x-auto p-4">
             <table className="text-xs border-collapse" style={{ tableLayout: 'fixed', width: '100%', minWidth: 900 }}>
               <colgroup>
                 <col style={{ width: 140 }} />
@@ -534,20 +548,20 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                 {ZONE_COLS.map(z => <col key={z.key} style={{ width: 72 }} />)}
               </colgroup>
               <thead>
-                <tr className="border-b-2 border-slate-100">
-                  <th className="text-left py-2 pr-3 text-slate-700 font-semibold sticky left-0 bg-white">選手</th>
-                  <th className="text-center py-2 px-1 text-slate-700 font-semibold">POS</th>
+                <tr style={{ backgroundColor: '#2a2a2a' }}>
+                  <th className="text-left py-2 pr-3 font-bold sticky left-0" style={{ color: '#ccc', backgroundColor: '#2a2a2a', fontSize: 11 }}>選手</th>
+                  <th className="text-center py-2 px-1 font-bold" style={{ color: '#ccc', fontSize: 11 }}>POS</th>
                   {GPS_METRICS.map(m => {
                     const active = tableSort.key === m.key
                     return (
                       <th key={m.key}
-                        className="text-right py-2 px-1 font-semibold leading-tight cursor-pointer select-none"
-                        style={{ color: active ? '#1e293b' : '#475569' }}
+                        className="text-right py-2 px-1 font-bold leading-tight cursor-pointer select-none"
+                        style={{ color: active ? '#fff' : '#aaa', fontSize: 11, backgroundColor: active ? '#cc0000' : undefined }}
                         onClick={() => handleTableSort(m.key)}>
                         <div className="break-words hyphens-auto">{m.label}</div>
                         <div className="flex items-center justify-end gap-0.5 mt-0.5">
-                          <span className="font-normal text-[10px] text-slate-400">{m.unit}</span>
-                          <span className="text-[10px]" style={{ color: active ? '#6366f1' : '#cbd5e1' }}>
+                          <span className="font-normal" style={{ fontSize: 9, color: active ? '#ffccc' : '#666' }}>{m.unit}</span>
+                          <span style={{ fontSize: 10, color: active ? '#fff' : '#555' }}>
                             {active ? (tableSort.dir === 'desc' ? '↓' : '↑') : '↕'}
                           </span>
                         </div>
@@ -558,13 +572,13 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                     const active = tableSort.key === z.key
                     return (
                       <th key={z.key}
-                        className="text-right py-2 px-1 font-semibold leading-tight cursor-pointer select-none"
-                        style={{ color: active ? '#1e293b' : '#475569' }}
+                        className="text-right py-2 px-1 font-bold leading-tight cursor-pointer select-none"
+                        style={{ color: active ? '#fff' : '#aaa', fontSize: 11, backgroundColor: active ? '#cc0000' : undefined }}
                         onClick={() => handleTableSort(z.key)}>
                         <div className="break-words">{z.label}</div>
                         <div className="flex items-center justify-end gap-0.5 mt-0.5">
-                          <span className="font-normal text-[10px] text-slate-400">m</span>
-                          <span className="text-[10px]" style={{ color: active ? '#6366f1' : '#cbd5e1' }}>
+                          <span className="font-normal" style={{ fontSize: 9, color: active ? '#fcc' : '#666' }}>m</span>
+                          <span style={{ fontSize: 10, color: active ? '#fff' : '#555' }}>
                             {active ? (tableSort.dir === 'desc' ? '↓' : '↑') : '↕'}
                           </span>
                         </div>
