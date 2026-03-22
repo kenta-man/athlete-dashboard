@@ -113,6 +113,12 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
   const activeM = metrics.find(m => m.key === metricKey) ?? metrics[0]
   const effectiveKey = activeM.key   // always a valid key for the current tab
 
+  // Table sort state
+  const [tableSort, setTableSort] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'totalDistance', dir: 'desc' })
+  const handleTableSort = (key: string) => {
+    setTableSort(prev => prev.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' })
+  }
+
   const aggPlayers = useMemo(() => players.map(p => ({
     ...p,
     agg: isGps
@@ -389,7 +395,12 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                 </div>
                 <div className="space-y-1 max-h-80 overflow-y-auto pr-1" style={{ scrollbarWidth: 'none' }}>
                   {ranking.map((d: any, rank: number) => {
-                    const color = POSITION_COLORS[d.pos]
+                    const isGK = d.pos === 'GK'
+                    const groupAvg = isGK ? gkAvg : fpAvg
+                    const aboveAvg = d.value > groupAvg
+                    const highlightColor = isGK ? '#f59e0b' : '#6366f1'
+                    const barBg = aboveAvg ? highlightColor + '25' : '#e2e8f0'
+                    const barBorder = aboveAvg ? highlightColor : '#cbd5e1'
                     const pct = maxVal > 0 ? (d.value / maxVal) * 100 : 0
                     return (
                       <div key={d.id} className="flex items-center gap-2">
@@ -399,18 +410,20 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                           className="w-5 h-5 rounded-full object-cover flex-shrink-0 border border-slate-200"
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                         <span className="text-xs w-32 flex-shrink-0 truncate font-medium text-slate-800">{d.name}</span>
-                        <span className="text-[10px] w-6 flex-shrink-0 text-slate-600 font-medium">{d.pos}</span>
+                        <span className="text-[10px] w-6 flex-shrink-0 font-medium"
+                          style={{ color: aboveAvg ? highlightColor : '#94a3b8' }}>{d.pos}</span>
                         <div className="flex-1 h-4 rounded-sm overflow-hidden bg-slate-100 relative">
-                          <div className="h-full rounded-sm"
-                            style={{ width: `${pct}%`, backgroundColor: color + '30', borderRight: `1.5px solid ${color}` }} />
+                          <div className="h-full rounded-sm transition-all"
+                            style={{ width: `${pct}%`, backgroundColor: barBg, borderRight: `2px solid ${barBorder}` }} />
                           {/* FP average line */}
                           <div className="absolute top-0 bottom-0 w-px"
-                            style={{ left: `${fpAvgPct}%`, backgroundColor: '#6366f1', opacity: 0.7 }} />
+                            style={{ left: `${fpAvgPct}%`, backgroundColor: '#6366f1', opacity: 0.6 }} />
                           {/* GK average line */}
                           <div className="absolute top-0 bottom-0 w-px"
-                            style={{ left: `${gkAvgPct}%`, backgroundColor: '#f59e0b', opacity: 0.7 }} />
+                            style={{ left: `${gkAvgPct}%`, backgroundColor: '#f59e0b', opacity: 0.6 }} />
                         </div>
-                        <span className="text-xs w-16 text-right flex-shrink-0 font-bold text-slate-800">
+                        <span className="text-xs w-16 text-right flex-shrink-0 font-bold"
+                          style={{ color: aboveAvg ? highlightColor : '#1e293b' }}>
                           {d.value.toLocaleString()}
                           <span className="font-normal text-slate-400 ml-0.5">{unit}</span>
                         </span>
@@ -524,25 +537,49 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                 <tr className="border-b-2 border-slate-100">
                   <th className="text-left py-2 pr-3 text-slate-700 font-semibold sticky left-0 bg-white">選手</th>
                   <th className="text-center py-2 px-1 text-slate-700 font-semibold">POS</th>
-                  {GPS_METRICS.map(m => (
-                    <th key={m.key} className="text-right py-2 px-1 text-slate-700 font-semibold leading-tight">
-                      <div className="break-words hyphens-auto">{m.label}</div>
-                      <div className="text-slate-400 font-normal text-[10px] mt-0.5">{m.unit}</div>
-                    </th>
-                  ))}
-                  {ZONE_COLS.map(z => (
-                    <th key={z.key} className="text-right py-2 px-1 text-slate-700 font-semibold leading-tight">
-                      <div className="break-words">{z.label}</div>
-                      <div className="font-normal text-[10px] text-slate-400 mt-0.5">m</div>
-                    </th>
-                  ))}
+                  {GPS_METRICS.map(m => {
+                    const active = tableSort.key === m.key
+                    return (
+                      <th key={m.key}
+                        className="text-right py-2 px-1 font-semibold leading-tight cursor-pointer select-none"
+                        style={{ color: active ? '#1e293b' : '#475569' }}
+                        onClick={() => handleTableSort(m.key)}>
+                        <div className="break-words hyphens-auto">{m.label}</div>
+                        <div className="flex items-center justify-end gap-0.5 mt-0.5">
+                          <span className="font-normal text-[10px] text-slate-400">{m.unit}</span>
+                          <span className="text-[10px]" style={{ color: active ? '#6366f1' : '#cbd5e1' }}>
+                            {active ? (tableSort.dir === 'desc' ? '↓' : '↑') : '↕'}
+                          </span>
+                        </div>
+                      </th>
+                    )
+                  })}
+                  {ZONE_COLS.map(z => {
+                    const active = tableSort.key === z.key
+                    return (
+                      <th key={z.key}
+                        className="text-right py-2 px-1 font-semibold leading-tight cursor-pointer select-none"
+                        style={{ color: active ? '#1e293b' : '#475569' }}
+                        onClick={() => handleTableSort(z.key)}>
+                        <div className="break-words">{z.label}</div>
+                        <div className="flex items-center justify-end gap-0.5 mt-0.5">
+                          <span className="font-normal text-[10px] text-slate-400">m</span>
+                          <span className="text-[10px]" style={{ color: active ? '#6366f1' : '#cbd5e1' }}>
+                            {active ? (tableSort.dir === 'desc' ? '↓' : '↑') : '↕'}
+                          </span>
+                        </div>
+                      </th>
+                    )
+                  })}
                 </tr>
               </thead>
               <tbody>
                 {[...aggPlayers].sort((a: any, b: any) => {
                   const aLast = a.agg[a.agg.length - 1] as any
                   const bLast = b.agg[b.agg.length - 1] as any
-                  return getVal(bLast, 'totalDistance') - getVal(aLast, 'totalDistance')
+                  const aVal = getVal(aLast, tableSort.key)
+                  const bVal = getVal(bLast, tableSort.key)
+                  return tableSort.dir === 'desc' ? bVal - aVal : aVal - bVal
                 }).map((p: any) => {
                   const last = p.agg[p.agg.length - 1] as any
                   const posGroup = (POS_GROUPS['GK'] as string[]).includes(p.position) ? 'GK' : 'FP'
