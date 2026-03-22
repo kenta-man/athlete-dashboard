@@ -40,14 +40,14 @@ function SectionItem({
   label, curr, prev, unit, decimals = 1,
 }: { label: string; curr: number; prev: number | undefined; unit: string; decimals?: number }) {
   const diff = prev !== undefined ? +(curr - prev).toFixed(decimals) : null
-  const valueColor = diff === null || diff === 0 ? '#1e293b' : diff > 0 ? '#ef4444' : '#3b82f6'
+  const diffColor = diff === null || diff === 0 ? undefined : diff > 0 ? '#dc2626' : '#2563eb'
   return (
-    <div className="flex items-center justify-between py-0.5 border-b border-slate-50 last:border-0 gap-1">
-      <span className="text-slate-400 flex-shrink-0 leading-tight" style={{ fontSize: 10 }}>{label}</span>
-      <span className="font-bold flex items-center gap-0.5 text-right flex-shrink-0" style={{ fontSize: 11, color: valueColor }}>
+    <div className="flex items-center justify-between py-0.5 border-b border-slate-100 last:border-0 gap-1">
+      <span className="text-slate-700 flex-shrink-0 leading-tight font-medium" style={{ fontSize: 10 }}>{label}</span>
+      <span className="font-bold flex items-center gap-0.5 text-right flex-shrink-0" style={{ fontSize: 11, color: '#111827' }}>
         {curr}{unit && <span className="font-normal text-slate-400" style={{ fontSize: 10 }}>{unit}</span>}
         {diff !== null && diff !== 0 && (
-          <span className="font-bold ml-0.5" style={{ fontSize: 9, color: valueColor }}>
+          <span className="font-bold ml-0.5" style={{ fontSize: 9, color: diffColor }}>
             {diff > 0 ? `+${diff}` : `${diff}`}
           </span>
         )}
@@ -67,20 +67,16 @@ function SessionSummary({ data, player }: { data: ConditioningData[]; player: Pl
   const monthSessions = data.map((dd, i) => ({ ...dd, idx: i })).filter(dd => dd.date.startsWith(selectedMonth))
 
   const topKpis = [
-    { label: '体重',           curr: d.weight,             prev: p?.weight,             unit: 'kg',   accent: '#3b82f6' },
-    { label: '体脂肪率',       curr: d.bodyFatPct,         prev: p?.bodyFatPct,         unit: '%',    accent: '#ef4444' },
-    { label: '骨格筋量',       curr: d.skeletalMuscleMass, prev: p?.skeletalMuscleMass, unit: 'kg',   accent: '#10b981' },
-    { label: '筋肉量',         curr: d.muscleMass,         prev: p?.muscleMass,         unit: 'kg',   accent: '#059669' },
-    { label: '除脂肪量',       curr: d.leanBodyMass,       prev: p?.leanBodyMass,       unit: 'kg',   accent: '#0ea5e9' },
-    { label: '基礎代謝',       curr: d.bmr,                prev: p?.bmr,                unit: 'kcal', accent: '#8b5cf6' },
-    { label: '水和率',         curr: d.hydrationRate,      prev: p?.hydrationRate,      unit: '%',    accent: '#0284c7' },
-    { label: '全身位相角',     curr: d.phaseAngleWhole,    prev: p?.phaseAngleWhole,    unit: '°',    accent: '#7c3aed' },
-    { label: '安静時心拍',     curr: d.hrResting,          prev: p?.hrResting,          unit: 'bpm',  accent: '#f43f5e' },
-    { label: 'HRV',            curr: d.hrv,                prev: p?.hrv,                unit: 'ms',   accent: '#6366f1' },
-    { label: '睡眠時間',       curr: d.sleepHours,         prev: p?.sleepHours,         unit: 'h',    accent: '#f59e0b' },
-    { label: '疲労感',         curr: d.fatigueLevel,       prev: p?.fatigueLevel,       unit: '/10',  accent: '#f97316' },
-    { label: 'モチベーション', curr: d.motivation,         prev: p?.motivation,         unit: '/10',  accent: '#34d399' },
-    { label: 'ストレス',       curr: d.stressLevel,        prev: p?.stressLevel,        unit: '/10',  accent: '#94a3b8' },
+    { label: '体重',       curr: d.weight,             prev: p?.weight,             unit: 'kg',   accent: '#3b82f6' },
+    { label: '体脂肪率',   curr: d.bodyFatPct,         prev: p?.bodyFatPct,         unit: '%',    accent: '#ef4444' },
+    { label: '骨格筋量',   curr: d.skeletalMuscleMass, prev: p?.skeletalMuscleMass, unit: 'kg',   accent: '#10b981' },
+    { label: '筋肉量',     curr: d.muscleMass,         prev: p?.muscleMass,         unit: 'kg',   accent: '#059669' },
+    { label: '除脂肪量',   curr: d.leanBodyMass,       prev: p?.leanBodyMass,       unit: 'kg',   accent: '#0ea5e9' },
+    { label: '基礎代謝',   curr: d.bmr,                prev: p?.bmr,                unit: 'kcal', accent: '#8b5cf6' },
+    { label: '水和率',     curr: d.hydrationRate,      prev: p?.hydrationRate,      unit: '%',    accent: '#0284c7' },
+    { label: '全身位相角', curr: d.phaseAngleWhole,    prev: p?.phaseAngleWhole,    unit: '°',    accent: '#7c3aed' },
+    { label: '安静時心拍', curr: d.hrResting,          prev: p?.hrResting,          unit: 'bpm',  accent: '#f43f5e' },
+    { label: 'HRV',        curr: d.hrv,                prev: p?.hrv,                unit: 'ms',   accent: '#6366f1' },
   ]
 
   const sections = [
@@ -162,17 +158,6 @@ function SessionSummary({ data, player }: { data: ConditioningData[]; player: Pl
         { label: '左腕',     curr: d.circumLeftArm,    prev: p?.circumLeftArm,    unit: 'cm' },
         { label: '右太もも', curr: d.circumRightThigh, prev: p?.circumRightThigh, unit: 'cm' },
         { label: '左太もも', curr: d.circumLeftThigh,  prev: p?.circumLeftThigh,  unit: 'cm' },
-      ],
-    },
-    {
-      title: '主観的状態', color: '#ec4899',
-      items: [
-        { label: '睡眠時間',       curr: d.sleepHours,     prev: p?.sleepHours,     unit: 'h' },
-        { label: '睡眠の質',       curr: d.sleepQuality,   prev: p?.sleepQuality,   unit: '/10', decimals: 0 },
-        { label: '疲労感',         curr: d.fatigueLevel,   prev: p?.fatigueLevel,   unit: '/10', decimals: 0 },
-        { label: '筋肉痛',         curr: d.muscleSoreness, prev: p?.muscleSoreness, unit: '/10', decimals: 0 },
-        { label: 'モチベーション', curr: d.motivation,     prev: p?.motivation,     unit: '/10', decimals: 0 },
-        { label: 'ストレス',       curr: d.stressLevel,    prev: p?.stressLevel,    unit: '/10', decimals: 0 },
       ],
     },
     {
@@ -279,23 +264,27 @@ function SessionSummary({ data, player }: { data: ConditioningData[]; player: Pl
           <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>主要指標</p>
         </div>
         <div className="p-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
             {topKpis.map(k => {
               const diff = k.prev !== undefined ? +(k.curr - k.prev).toFixed(1) : null
-              const diffColor = diff === null || diff === 0 ? undefined : diff > 0 ? '#ef4444' : '#3b82f6'
+              const diffColor = diff === null || diff === 0 ? undefined : diff > 0 ? '#dc2626' : '#2563eb'
               return (
                 <div key={k.label} className="rounded-lg p-2.5 border text-center" style={{ backgroundColor: '#f9fafb', borderColor: '#e5e7eb' }}>
-                  <p className="text-xs text-slate-400 mb-1 leading-tight">{k.label}</p>
-                  <p className="text-sm font-bold leading-none text-slate-800 flex items-baseline justify-center gap-0.5 flex-wrap">
-                    <span style={{ color: k.accent }}>{k.curr}</span>
-                    <span className="text-xs font-normal text-slate-400">{k.unit}</span>
-                    {diff !== null && diff !== 0 && (
-                      <span className="text-xs font-bold" style={{ color: diffColor }}>
-                        {diff > 0 ? `+${diff}` : `${diff}`}
-                      </span>
-                    )}
-                    {diff === 0 && <span className="text-slate-300 text-xs">→</span>}
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.accent }} />
+                    <p className="text-xs font-semibold text-slate-600 leading-tight">{k.label}</p>
+                  </div>
+                  <p className="text-base font-bold leading-none" style={{ color: '#111827' }}>
+                    {k.curr}<span className="text-xs font-normal text-slate-400 ml-0.5">{k.unit}</span>
                   </p>
+                  {diff !== null && diff !== 0 && (
+                    <p className="text-xs font-bold mt-0.5" style={{ color: diffColor }}>
+                      {diff > 0 ? `▲+${diff}` : `▼${diff}`}
+                    </p>
+                  )}
+                  {(diff === null || diff === 0) && (
+                    <p className="text-xs text-slate-300 mt-0.5">—</p>
+                  )}
                 </div>
               )
             })}
@@ -358,10 +347,6 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
     { s: '水和率',   v: Math.min(100, latest.hydrationRate) },
     { s: '位相角',   v: Math.min(100, latest.phaseAngleWhole * 9) },
   ]
-  const wellnessData = data.map(d => ({
-    date: d.date, sleep: d.sleepHours, quality: d.sleepQuality,
-    fatigue: d.fatigueLevel, motivation: d.motivation, stress: d.stressLevel,
-  }))
   const bioData = data.map(d => ({
     date: d.date, hrResting: d.hrResting, hrv: d.hrv,
     systolic: d.systolicBP, diastolic: d.diastolicBP,
@@ -372,8 +357,8 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
 
   return (
     <div className="space-y-4">
-      {/* Summary KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* Summary KPI cards — narrow, one row, delta below value */}
+      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
         {[
           { label: '体重',       curr: latest.weight,             prev: prev?.weight,             unit: 'kg',   accent: '#3b82f6' },
           { label: '体脂肪率',   curr: latest.bodyFatPct,         prev: prev?.bodyFatPct,         unit: '%',    accent: '#ef4444' },
@@ -381,25 +366,26 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
           { label: '全身位相角', curr: latest.phaseAngleWhole,    prev: prev?.phaseAngleWhole,    unit: '°',    accent: '#8b5cf6' },
           { label: '安静時心拍', curr: latest.hrResting,          prev: prev?.hrResting,          unit: 'bpm',  accent: '#f43f5e' },
           { label: 'HRV',        curr: latest.hrv,                prev: prev?.hrv,                unit: 'ms',   accent: '#6366f1' },
-          { label: '睡眠時間',   curr: latest.sleepHours,         prev: prev?.sleepHours,         unit: 'h',    accent: '#f59e0b' },
-          { label: '疲労感',     curr: latest.fatigueLevel,       prev: prev?.fatigueLevel,       unit: '/10',  accent: '#f97316' },
         ].map(k => {
           const diff = k.prev !== undefined ? +(k.curr - k.prev).toFixed(1) : null
-          const diffColor = diff === null || diff === 0 ? '#94a3b8' : diff > 0 ? '#ef4444' : '#3b82f6'
+          const diffColor = diff === null || diff === 0 ? undefined : diff > 0 ? '#dc2626' : '#2563eb'
           return (
-            <div key={k.label} className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-              <div className="px-3 py-1.5 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
+            <div key={k.label} className="bg-white border border-slate-200 overflow-hidden flex-shrink-0" style={{ borderRadius: 0, minWidth: 90 }}>
+              <div className="px-2 py-1.5 flex items-center gap-1.5" style={{ backgroundColor: '#1a1a1a' }}>
                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.accent }} />
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>{k.label}</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest truncate" style={{ color: '#aaa' }}>{k.label}</p>
               </div>
-              <div className="p-3 flex items-end gap-1.5">
-                <p className="text-2xl font-bold" style={{ color: k.accent }}>
-                  {k.curr}<span className="text-sm font-normal text-slate-400 ml-1">{k.unit}</span>
+              <div className="px-2.5 py-2 text-center">
+                <p className="text-lg font-bold leading-none" style={{ color: '#111827' }}>
+                  {k.curr}
                 </p>
-                {diff !== null && (
-                  <p className="text-sm font-bold mb-0.5" style={{ color: diffColor }}>
-                    {diff === 0 ? '→' : diff > 0 ? `+${diff}` : `${diff}`}
+                <p className="text-[10px] text-slate-400 mb-1">{k.unit}</p>
+                {diff !== null && diff !== 0 ? (
+                  <p className="text-xs font-bold" style={{ color: diffColor }}>
+                    {diff > 0 ? `▲+${diff}` : `▼${diff}`}
                   </p>
+                ) : (
+                  <p className="text-[10px] text-slate-300">—</p>
                 )}
               </div>
             </div>
@@ -498,24 +484,6 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Card title="主観的コンディション">
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={wellnessData}>
-              <CartesianGrid {...CHART.grid} />
-              <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
-              <YAxis yAxisId="l" {...CHART.axis} {...AUTO_Y} />
-              <YAxis yAxisId="r" orientation="right" {...CHART.axis} domain={[0, 10]} />
-              <Tooltip {...CHART.tooltip} labelFormatter={l => formatPeriodLabel(l, period)} />
-              <Legend {...CHART.legend} />
-              <Line yAxisId="l" type="monotone" dataKey="sleep"      name="睡眠時間(h)"       stroke="#f59e0b" strokeWidth={2}   dot={{ r: 3, fill: '#f59e0b', strokeWidth: 0 }} activeDot={{ r: 5 }} />
-              <Line yAxisId="r" type="monotone" dataKey="quality"    name="睡眠の質(/10)"     stroke="#fcd34d" strokeWidth={1.5} dot={{ r: 2, fill: '#fcd34d', strokeWidth: 0 }} />
-              <Line yAxisId="r" type="monotone" dataKey="fatigue"    name="疲労感(/10)"       stroke="#f87171" strokeWidth={1.5} strokeDasharray="4 3" dot={{ r: 2, fill: '#f87171', strokeWidth: 0 }} />
-              <Line yAxisId="r" type="monotone" dataKey="motivation" name="モチベーション(/10)" stroke="#34d399" strokeWidth={1.5} dot={{ r: 2, fill: '#34d399', strokeWidth: 0 }} />
-              <Line yAxisId="r" type="monotone" dataKey="stress"     name="ストレス(/10)"     stroke="#94a3b8" strokeWidth={1}   strokeDasharray="3 3" dot={{ r: 2, fill: '#94a3b8', strokeWidth: 0 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
-
         <Card title="心拍数 / HRV">
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={bioData}>
@@ -570,8 +538,6 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
                   { h1: '全身',     h2: '位相角(°)' },
                   { h1: '安静HR',   h2: '(bpm)' },
                   { h1: 'HRV',      h2: '(ms)' },
-                  { h1: '睡眠',     h2: '(h)' },
-                  { h1: '疲労感',   h2: '(/10)' },
                 ].map((col, i) => (
                   <th key={i} className="px-2 py-2 font-bold text-center whitespace-nowrap" style={{ color: '#bbb', fontSize: 10 }}>
                     <div>{col.h1}</div>
@@ -583,8 +549,8 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
             <tbody>
               {[...data].reverse().map((dd, ri) => {
                 const prevRow = ri < data.length - 1 ? [...data].reverse()[ri + 1] : undefined
-                const vals = [dd.weight, dd.bodyFatPct, dd.muscleMass, dd.skeletalMuscleMass, dd.bmi, dd.bmr, dd.hydrationRate, dd.phaseAngleWhole, dd.hrResting, dd.hrv, dd.sleepHours, dd.fatigueLevel]
-                const prevVals = prevRow ? [prevRow.weight, prevRow.bodyFatPct, prevRow.muscleMass, prevRow.skeletalMuscleMass, prevRow.bmi, prevRow.bmr, prevRow.hydrationRate, prevRow.phaseAngleWhole, prevRow.hrResting, prevRow.hrv, prevRow.sleepHours, prevRow.fatigueLevel] : null
+                const vals = [dd.weight, dd.bodyFatPct, dd.muscleMass, dd.skeletalMuscleMass, dd.bmi, dd.bmr, dd.hydrationRate, dd.phaseAngleWhole, dd.hrResting, dd.hrv]
+                const prevVals = prevRow ? [prevRow.weight, prevRow.bodyFatPct, prevRow.muscleMass, prevRow.skeletalMuscleMass, prevRow.bmi, prevRow.bmr, prevRow.hydrationRate, prevRow.phaseAngleWhole, prevRow.hrResting, prevRow.hrv] : null
                 return (
                   <tr key={dd.date} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                     <td className="px-2 py-2 font-semibold text-center whitespace-nowrap" style={{ color: '#2563eb', fontSize: 11 }}>
