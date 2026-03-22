@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer,
 } from 'recharts'
 import type { ConditioningData, Player } from '../data/sampleData'
-import { type Period, formatPeriodLabel } from '../utils/aggregation'
+import { type Period, formatPeriodLabel, aggregateCondData, PERIOD_LABELS } from '../utils/aggregation'
 
-interface Props { data: ConditioningData[]; period: Period; player: Player }
+interface Props { rawData: ConditioningData[]; player: Player }
 
 const CHART = {
   grid: { stroke: '#f1f5f9', strokeDasharray: '3 3' },
@@ -458,8 +458,38 @@ function RecentTrendCharts({ data }: { data: ConditioningData[] }) {
 function TrendView({ data, period, player }: { data: ConditioningData[]; period: Period; player: Player }) {
   const [selectedMetrics, setSelectedMetrics] = useState<Set<string>>(new Set())
   const fmt = (k: string) => formatPeriodLabel(k, period)
-  const latest = data[data.length - 1]
-  const prev   = data.length > 1 ? data[data.length - 2] : undefined
+
+  // ── 表示期間フィルター ──────────────────────────────────────────────────────
+  const allKeys = useMemo(() => data.map(d => d.date), [data])
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
+  const [selectedDailyMonths, setSelectedDailyMonths] = useState<Set<string>>(new Set())
+  const [daysOpen, setDaysOpen] = useState(false)
+  useEffect(() => { setSelectedKeys(new Set()); setSelectedDailyMonths(new Set()); setDaysOpen(false) }, [data])
+
+  const dailyMonths = useMemo(() =>
+    period === 'daily' ? [...new Set(allKeys.map(k => k.slice(0, 7)))].sort() : [],
+    [allKeys, period]
+  )
+  const dailyMonthKeys = useMemo(() =>
+    selectedDailyMonths.size === 0 ? allKeys : allKeys.filter(k => [...selectedDailyMonths].some(m => k.startsWith(m))),
+    [allKeys, selectedDailyMonths]
+  )
+  const range = useMemo(() => {
+    if (selectedKeys.size === 0) return { start: allKeys[0], end: allKeys[allKeys.length - 1] }
+    const sorted = [...selectedKeys].filter(k => allKeys.includes(k)).sort()
+    return sorted.length ? { start: sorted[0], end: sorted[sorted.length - 1] } : { start: allKeys[0], end: allKeys[allKeys.length - 1] }
+  }, [selectedKeys, allKeys])
+  function toggleKey(k: string) { setSelectedKeys(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n }) }
+  function applyRange(start: string, end: string) { setSelectedKeys(new Set(allKeys.filter(k => k >= start && k <= end))) }
+
+  const filtered = useMemo(
+    () => selectedKeys.size === 0 ? data : data.filter(d => selectedKeys.has(d.date)),
+    [data, selectedKeys]
+  )
+  const periodUnit = period === 'daily' ? '件' : period === 'weekly' ? '週' : 'ヶ月'
+
+  const latest = filtered[filtered.length - 1] ?? data[data.length - 1]
+  const prev   = filtered.length > 1 ? filtered[filtered.length - 2] : undefined
 
   // ── KPI cards (same 11 as session) ─────────────────────────────────────────
   const topKpis = [
@@ -499,78 +529,78 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
   ]
 
   // ── All metrics grouped ─────────────────────────────────────────────────────
-  type MetricDef = { key: keyof ConditioningData; label: string; unit: string; color: string }
+  type MetricDef = { key: keyof ConditioningData; label: string; unit: string; color: string; decimals: number }
   const allMetricGroups: { title: string; color: string; metrics: MetricDef[] }[] = [
     { title: '体組成指標', color: '#3b82f6', metrics: [
-      { key: 'weight',             label: '体重',     unit: 'kg', color: '#3b82f6' },
-      { key: 'bmi',                label: 'BMI',      unit: '',   color: '#93c5fd' },
-      { key: 'bodyFatPct',         label: '体脂肪率', unit: '%',  color: '#ef4444' },
-      { key: 'bodyFatMass',        label: '体脂肪量', unit: 'kg', color: '#fca5a5' },
-      { key: 'muscleMass',         label: '筋肉量',   unit: 'kg', color: '#10b981' },
-      { key: 'skeletalMuscleMass', label: '骨格筋量', unit: 'kg', color: '#059669' },
-      { key: 'leanBodyMass',       label: '除脂肪量', unit: 'kg', color: '#0ea5e9' },
+      { key: 'weight',             label: '体重',     unit: 'kg', color: '#3b82f6', decimals: 1 },
+      { key: 'bmi',                label: 'BMI',      unit: '',   color: '#93c5fd', decimals: 1 },
+      { key: 'bodyFatPct',         label: '体脂肪率', unit: '%',  color: '#ef4444', decimals: 1 },
+      { key: 'bodyFatMass',        label: '体脂肪量', unit: 'kg', color: '#fca5a5', decimals: 1 },
+      { key: 'muscleMass',         label: '筋肉量',   unit: 'kg', color: '#10b981', decimals: 1 },
+      { key: 'skeletalMuscleMass', label: '骨格筋量', unit: 'kg', color: '#059669', decimals: 1 },
+      { key: 'leanBodyMass',       label: '除脂肪量', unit: 'kg', color: '#0ea5e9', decimals: 1 },
     ]},
     { title: '体成分・細胞健康', color: '#0ea5e9', metrics: [
-      { key: 'bodyWater',          label: '体水分量',     unit: 'L',  color: '#0ea5e9' },
-      { key: 'intracellularWater', label: '細胞内水分量', unit: 'L',  color: '#38bdf8' },
-      { key: 'extracellularWater', label: '細胞外水分量', unit: 'L',  color: '#7dd3fc' },
-      { key: 'protein',            label: 'タンパク質量', unit: 'kg', color: '#a78bfa' },
-      { key: 'mineral',            label: 'ミネラル量',   unit: 'kg', color: '#f59e0b' },
-      { key: 'bodyCellMass',       label: '体細胞量',     unit: 'kg', color: '#34d399' },
-      { key: 'boneMineralMass',    label: '骨ミネラル量', unit: 'kg', color: '#fbbf24' },
+      { key: 'bodyWater',          label: '体水分量',     unit: 'L',  color: '#0ea5e9', decimals: 1 },
+      { key: 'intracellularWater', label: '細胞内水分量', unit: 'L',  color: '#38bdf8', decimals: 1 },
+      { key: 'extracellularWater', label: '細胞外水分量', unit: 'L',  color: '#7dd3fc', decimals: 1 },
+      { key: 'protein',            label: 'タンパク質量', unit: 'kg', color: '#a78bfa', decimals: 1 },
+      { key: 'mineral',            label: 'ミネラル量',   unit: 'kg', color: '#f59e0b', decimals: 2 },
+      { key: 'bodyCellMass',       label: '体細胞量',     unit: 'kg', color: '#34d399', decimals: 1 },
+      { key: 'boneMineralMass',    label: '骨ミネラル量', unit: 'kg', color: '#fbbf24', decimals: 2 },
     ]},
     { title: '代謝・水分バランス', color: '#8b5cf6', metrics: [
-      { key: 'bmr',          label: '基礎代謝量',      unit: 'kcal', color: '#8b5cf6' },
-      { key: 'hydrationRate', label: '水和率',         unit: '%',    color: '#0284c7' },
-      { key: 'ecwRatio',     label: '細胞外水分比',    unit: '',     color: '#818cf8' },
-      { key: 'ffmi',         label: '除脂肪指数',      unit: '',     color: '#6366f1' },
-      { key: 'fmi',          label: '体脂肪指数',      unit: '',     color: '#f87171' },
-      { key: 'whr',          label: 'ウエストヒップ比', unit: '',    color: '#fb923c' },
+      { key: 'bmr',          label: '基礎代謝量',      unit: 'kcal', color: '#8b5cf6', decimals: 0 },
+      { key: 'hydrationRate', label: '水和率',         unit: '%',    color: '#0284c7', decimals: 1 },
+      { key: 'ecwRatio',     label: '細胞外水分比',    unit: '',     color: '#818cf8', decimals: 3 },
+      { key: 'ffmi',         label: '除脂肪指数',      unit: '',     color: '#6366f1', decimals: 1 },
+      { key: 'fmi',          label: '体脂肪指数',      unit: '',     color: '#f87171', decimals: 1 },
+      { key: 'whr',          label: 'ウエストヒップ比', unit: '',    color: '#fb923c', decimals: 2 },
     ]},
     { title: '部位別筋肉量', color: '#10b981', metrics: [
-      { key: 'muscleRightArm', label: '右腕', unit: 'kg', color: '#10b981' },
-      { key: 'muscleLeftArm',  label: '左腕', unit: 'kg', color: '#34d399' },
-      { key: 'muscleTrunk',    label: '体幹', unit: 'kg', color: '#059669' },
-      { key: 'muscleRightLeg', label: '右脚', unit: 'kg', color: '#6ee7b7' },
-      { key: 'muscleLeftLeg',  label: '左脚', unit: 'kg', color: '#a7f3d0' },
+      { key: 'muscleRightArm', label: '右腕', unit: 'kg', color: '#10b981', decimals: 2 },
+      { key: 'muscleLeftArm',  label: '左腕', unit: 'kg', color: '#34d399', decimals: 2 },
+      { key: 'muscleTrunk',    label: '体幹', unit: 'kg', color: '#059669', decimals: 1 },
+      { key: 'muscleRightLeg', label: '右脚', unit: 'kg', color: '#6ee7b7', decimals: 2 },
+      { key: 'muscleLeftLeg',  label: '左脚', unit: 'kg', color: '#a7f3d0', decimals: 2 },
     ]},
     { title: '部位別発達率', color: '#059669', metrics: [
-      { key: 'devRightArm', label: '右腕', unit: '%', color: '#059669' },
-      { key: 'devLeftArm',  label: '左腕', unit: '%', color: '#10b981' },
-      { key: 'devTrunk',    label: '体幹', unit: '%', color: '#047857' },
-      { key: 'devRightLeg', label: '右脚', unit: '%', color: '#34d399' },
-      { key: 'devLeftLeg',  label: '左脚', unit: '%', color: '#6ee7b7' },
+      { key: 'devRightArm', label: '右腕', unit: '%', color: '#059669', decimals: 0 },
+      { key: 'devLeftArm',  label: '左腕', unit: '%', color: '#10b981', decimals: 0 },
+      { key: 'devTrunk',    label: '体幹', unit: '%', color: '#047857', decimals: 0 },
+      { key: 'devRightLeg', label: '右脚', unit: '%', color: '#34d399', decimals: 0 },
+      { key: 'devLeftLeg',  label: '左脚', unit: '%', color: '#6ee7b7', decimals: 0 },
     ]},
     { title: '位相角（50kHz）', color: '#7c3aed', metrics: [
-      { key: 'phaseAngleRightArm', label: '右腕', unit: '°', color: '#7c3aed' },
-      { key: 'phaseAngleLeftArm',  label: '左腕', unit: '°', color: '#8b5cf6' },
-      { key: 'phaseAngleTrunk',    label: '体幹', unit: '°', color: '#6d28d9' },
-      { key: 'phaseAngleRightLeg', label: '右脚', unit: '°', color: '#a78bfa' },
-      { key: 'phaseAngleLeftLeg',  label: '左脚', unit: '°', color: '#c4b5fd' },
-      { key: 'phaseAngleWhole',    label: '全身', unit: '°', color: '#5b21b6' },
+      { key: 'phaseAngleRightArm', label: '右腕', unit: '°', color: '#7c3aed', decimals: 1 },
+      { key: 'phaseAngleLeftArm',  label: '左腕', unit: '°', color: '#8b5cf6', decimals: 1 },
+      { key: 'phaseAngleTrunk',    label: '体幹', unit: '°', color: '#6d28d9', decimals: 1 },
+      { key: 'phaseAngleRightLeg', label: '右脚', unit: '°', color: '#a78bfa', decimals: 1 },
+      { key: 'phaseAngleLeftLeg',  label: '左脚', unit: '°', color: '#c4b5fd', decimals: 1 },
+      { key: 'phaseAngleWhole',    label: '全身', unit: '°', color: '#5b21b6', decimals: 1 },
     ]},
     { title: '身体周囲径', color: '#f59e0b', metrics: [
-      { key: 'circumNeck',       label: '首',       unit: 'cm', color: '#f59e0b' },
-      { key: 'circumChest',      label: '胸部',     unit: 'cm', color: '#fbbf24' },
-      { key: 'circumAbdomen',    label: '腹部',     unit: 'cm', color: '#d97706' },
-      { key: 'circumHip',        label: '臀部',     unit: 'cm', color: '#f97316' },
-      { key: 'circumRightArm',   label: '右腕',     unit: 'cm', color: '#fb923c' },
-      { key: 'circumLeftArm',    label: '左腕',     unit: 'cm', color: '#fdba74' },
-      { key: 'circumRightThigh', label: '右太もも', unit: 'cm', color: '#c2410c' },
-      { key: 'circumLeftThigh',  label: '左太もも', unit: 'cm', color: '#ea580c' },
+      { key: 'circumNeck',       label: '首',       unit: 'cm', color: '#f59e0b', decimals: 1 },
+      { key: 'circumChest',      label: '胸部',     unit: 'cm', color: '#fbbf24', decimals: 1 },
+      { key: 'circumAbdomen',    label: '腹部',     unit: 'cm', color: '#d97706', decimals: 1 },
+      { key: 'circumHip',        label: '臀部',     unit: 'cm', color: '#f97316', decimals: 1 },
+      { key: 'circumRightArm',   label: '右腕',     unit: 'cm', color: '#fb923c', decimals: 1 },
+      { key: 'circumLeftArm',    label: '左腕',     unit: 'cm', color: '#fdba74', decimals: 1 },
+      { key: 'circumRightThigh', label: '右太もも', unit: 'cm', color: '#c2410c', decimals: 1 },
+      { key: 'circumLeftThigh',  label: '左太もも', unit: 'cm', color: '#ea580c', decimals: 1 },
     ]},
     { title: 'バイオメトリクス', color: '#ef4444', metrics: [
-      { key: 'hrResting',  label: '安静時心拍数', unit: 'bpm',  color: '#ef4444' },
-      { key: 'hrv',        label: 'HRV',          unit: 'ms',   color: '#6366f1' },
-      { key: 'systolicBP', label: '収縮期血圧',   unit: 'mmHg', color: '#fb7185' },
-      { key: 'diastolicBP', label: '拡張期血圧',  unit: 'mmHg', color: '#fda4af' },
+      { key: 'hrResting',  label: '安静時心拍数', unit: 'bpm',  color: '#ef4444', decimals: 0 },
+      { key: 'hrv',        label: 'HRV',          unit: 'ms',   color: '#6366f1', decimals: 0 },
+      { key: 'systolicBP', label: '収縮期血圧',   unit: 'mmHg', color: '#fb7185', decimals: 0 },
+      { key: 'diastolicBP', label: '拡張期血圧',  unit: 'mmHg', color: '#fda4af', decimals: 0 },
     ]},
     { title: '栄養摂取', color: '#f97316', metrics: [
-      { key: 'calorieIntake', label: 'カロリー',   unit: 'kcal', color: '#f97316' },
-      { key: 'proteinIntake', label: 'タンパク質', unit: 'g',    color: '#3b82f6' },
-      { key: 'carbIntake',    label: '炭水化物',   unit: 'g',    color: '#f59e0b' },
-      { key: 'fatIntakeG',    label: '脂質',       unit: 'g',    color: '#f87171' },
-      { key: 'waterIntake',   label: '水分摂取',   unit: 'L',    color: '#0ea5e9' },
+      { key: 'calorieIntake', label: 'カロリー',   unit: 'kcal', color: '#f97316', decimals: 0 },
+      { key: 'proteinIntake', label: 'タンパク質', unit: 'g',    color: '#3b82f6', decimals: 0 },
+      { key: 'carbIntake',    label: '炭水化物',   unit: 'g',    color: '#f59e0b', decimals: 0 },
+      { key: 'fatIntakeG',    label: '脂質',       unit: 'g',    color: '#f87171', decimals: 0 },
+      { key: 'waterIntake',   label: '水分摂取',   unit: 'L',    color: '#0ea5e9', decimals: 1 },
     ]},
   ]
   const flatMetrics = allMetricGroups.flatMap(g => g.metrics)
@@ -598,6 +628,121 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
 
   return (
     <div className="space-y-4">
+      {/* ── 表示期間フィルター ── */}
+      <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+        <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>表示期間</p>
+        </div>
+        <div className="p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setSelectedKeys(new Set()); setSelectedDailyMonths(new Set()) }}
+              className="px-2 py-0.5 rounded text-[11px] font-semibold border transition-all"
+              style={selectedKeys.size === 0
+                ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+              全期間
+            </button>
+            <span className="text-[10px] text-slate-400 ml-auto">{filtered.length} {periodUnit}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-slate-400">範囲</span>
+            <select value={range.start} onChange={e => applyRange(e.target.value, range.end)}
+              className="text-[11px] border border-slate-200 rounded px-1.5 py-1 text-slate-700 bg-white outline-none focus:border-blue-400">
+              {allKeys.map(k => <option key={k} value={k}>{formatPeriodLabel(k, period)}</option>)}
+            </select>
+            <span className="text-[10px] text-slate-400">〜</span>
+            <select value={range.end} onChange={e => applyRange(range.start, e.target.value)}
+              className="text-[11px] border border-slate-200 rounded px-1.5 py-1 text-slate-700 bg-white outline-none focus:border-blue-400">
+              {allKeys.map(k => <option key={k} value={k}>{formatPeriodLabel(k, period)}</option>)}
+            </select>
+          </div>
+          {period === 'daily' && (
+            <>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {dailyMonths.map(m => {
+                  const isSel = selectedDailyMonths.has(m)
+                  return (
+                    <button key={m}
+                      onClick={() => setSelectedDailyMonths(prev => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n })}
+                      className="px-3 py-1.5 rounded-lg text-sm font-bold border transition-all"
+                      style={isSel
+                        ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                        : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                      {parseInt(m.slice(5))}月
+                    </button>
+                  )
+                })}
+              </div>
+              <div>
+                <button onClick={() => setDaysOpen(o => !o)}
+                  className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 mb-1 hover:text-slate-600 transition-colors">
+                  <svg className="w-3 h-3 transition-transform" style={{ transform: daysOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                  </svg>
+                  日を選択 {selectedKeys.size > 0 && `(${selectedKeys.size}件選択中)`}
+                </button>
+                {daysOpen && (
+                  <div className="grid grid-cols-7 gap-1">
+                    {dailyMonthKeys.map(d => {
+                      const isSel = selectedKeys.has(d)
+                      const inRange = d >= range.start && d <= range.end && selectedKeys.size > 0
+                      return (
+                        <button key={d} onClick={() => toggleKey(d)}
+                          className="py-0.5 rounded text-[9px] font-medium border transition-all text-center leading-tight"
+                          style={isSel
+                            ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', fontWeight: 700 }
+                            : inRange
+                              ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
+                              : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                          {`${parseInt(d.slice(5, 7))}/${parseInt(d.slice(8))}`}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+          {period === 'weekly' && (
+            <div className="flex gap-1 flex-wrap">
+              {allKeys.map(k => {
+                const isSel = selectedKeys.has(k)
+                const inRange = k >= range.start && k <= range.end && selectedKeys.size > 0
+                return (
+                  <button key={k} onClick={() => toggleKey(k)}
+                    className="px-2 py-0.5 rounded text-[11px] font-semibold border transition-all"
+                    style={isSel
+                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                      : inRange ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
+                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                    {fmt(k)}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {period === 'monthly' && (
+            <div className="flex gap-1 flex-wrap">
+              {allKeys.map(k => {
+                const isSel = selectedKeys.has(k)
+                const inRange = k >= range.start && k <= range.end && selectedKeys.size > 0
+                return (
+                  <button key={k} onClick={() => toggleKey(k)}
+                    className="px-2 py-0.5 rounded text-[11px] font-semibold border transition-all"
+                    style={isSel
+                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                      : inRange ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
+                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                    {fmt(k)}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* ── KPI cards ── */}
       <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
         {topKpis.map(k => {
@@ -641,7 +786,7 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
               </div>
               <div className="p-1">
                 <ResponsiveContainer width="100%" height={130}>
-                  <LineChart data={data} margin={{ top: 8, right: ch.dualY ? 4 : 8, left: -4, bottom: 0 }}>
+                  <LineChart data={filtered} margin={{ top: 8, right: ch.dualY ? 4 : 8, left: -4, bottom: 0 }}>
                     <CartesianGrid {...miniChart.grid} />
                     <XAxis dataKey="date" tickFormatter={fmt} {...miniChart.axis} interval="preserveStartEnd" />
                     {ch.dualY ? (
@@ -724,11 +869,11 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
                   </span>
                 </div>
                 <ResponsiveContainer width="100%" height={180}>
-                  <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                  <LineChart data={filtered} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                     <CartesianGrid {...CHART.grid} />
                     <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
                     <YAxis {...CHART.axis} {...AUTO_Y} tickCount={5}
-                      tickFormatter={(v: number) => v % 1 === 0 ? v.toLocaleString() : v.toFixed(1)} />
+                      tickFormatter={(v: number) => def.decimals === 0 ? Math.round(v).toLocaleString() : v.toFixed(def.decimals)} />
                     <Tooltip {...CHART.tooltip} labelFormatter={l => formatPeriodLabel(l, period)}
                       formatter={(v) => [`${Number(v)}${def.unit ? ` ${def.unit}` : ''}`]} />
                     <Line type="monotone" dataKey={mk}
@@ -785,8 +930,30 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
-export default function ConditioningView({ data, period, player }: Props) {
-  return period === 'session'
-    ? <SessionSummary data={data} player={player} />
-    : <TrendView data={data} period={period} player={player} />
+export default function ConditioningView({ rawData, player }: Props) {
+  const [period, setPeriod] = useState<Period>('session')
+  const data = useMemo(() => aggregateCondData(rawData, period), [rawData, period])
+
+  return (
+    <div className="space-y-4">
+      {/* ── 表示期間タブ ── */}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center rounded gap-0.5 p-0.5" style={{ backgroundColor: '#1a1a1a' }}>
+          {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
+            <button key={p} onClick={() => setPeriod(p)}
+              className="px-4 py-1.5 rounded text-xs font-bold transition-all"
+              style={period === p
+                ? { backgroundColor: '#2563eb', color: '#fff' }
+                : { color: '#888', background: 'transparent' }}>
+              {PERIOD_LABELS[p]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {period === 'session'
+        ? <SessionSummary data={data} player={player} />
+        : <TrendView data={data} period={period} player={player} />}
+    </div>
+  )
 }

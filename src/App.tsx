@@ -1,6 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { players, POSITION_COLORS } from './data/sampleData'
-import { aggregateCondData, type Period, PERIOD_LABELS } from './utils/aggregation'
 import GpsView from './components/GpsView'
 import ConditioningView from './components/ConditioningView'
 import ComparisonView from './components/ComparisonView'
@@ -17,12 +16,10 @@ export default function App() {
   const [selectedPlayerId, setSelectedPlayerId] = useState(players[0].id)
   const [viewMode, setViewMode]   = useState<ViewMode>('individual')
   const [dataTab, setDataTab]     = useState<DataTab>('gps')
-  const [period, setPeriod]       = useState<Period>('session')
   const [posFilter, setPosFilter] = useState<string>('ALL')
   const [compView, setCompView]   = useState<'session' | 'matrix'>('matrix')
 
   const player  = players.find(p => p.id === selectedPlayerId)!
-  const condData = useMemo(() => aggregateCondData(player.conditioningData, period), [player, period])
 
   const filteredPlayers = posFilter === 'ALL' ? players : players.filter(p => p.position === posFilter)
   const posCounts = ['GK','DF','MF','FW'].reduce<Record<string,number>>((acc, pos) => {
@@ -95,27 +92,6 @@ export default function App() {
                     {v.label}
                   </button>
                 ))}
-              </div>
-            </>
-          )}
-
-          {/* Period (individual + conditioning only) */}
-          {viewMode === 'individual' && dataTab === 'conditioning' && (
-            <>
-              <div className="w-px h-5" style={{ backgroundColor: '#444' }} />
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium" style={{ color: '#888' }}>期間</span>
-                <div className="flex items-center rounded gap-0.5 p-0.5" style={{ backgroundColor: '#111' }}>
-                  {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
-                    <button key={p} onClick={() => setPeriod(p)}
-                      className="px-3 py-1 rounded text-xs font-bold transition-all"
-                      style={period === p
-                        ? { backgroundColor: '#2563eb', color: '#fff' }
-                        : { color: '#888', background: 'transparent' }}>
-                      {PERIOD_LABELS[p]}
-                    </button>
-                  ))}
-                </div>
               </div>
             </>
           )}
@@ -199,21 +175,11 @@ export default function App() {
                   <span className="text-xs text-slate-500">身長: <span className="font-medium text-slate-700">{player.heightCm}cm</span></span>
                 </div>
               </div>
-              {dataTab === 'conditioning' && condData.length > 0 && (() => {
-                const last = condData[condData.length - 1]
-                return (
-                  <div className="hidden md:flex gap-3">
-                    <Stat label="体重" value={`${last.weight}`} unit="kg" />
-                    <Stat label="体脂肪率" value={`${last.bodyFatPct}`} unit="%" />
-                    <Stat label="骨格筋量" value={`${last.skeletalMuscleMass}`} unit="kg" />
-                  </div>
-                )
-              })()}
             </div>
 
             {dataTab === 'gps'
               ? <GpsView rawData={player.gpsData} player={player} />
-              : <ConditioningView data={condData} period={period} player={player} />}
+              : <ConditioningView rawData={player.conditioningData} player={player} />}
           </>
         ) : (
           <ComparisonView players={players} dataTab={dataTab} compView={compView} />
@@ -223,11 +189,3 @@ export default function App() {
   )
 }
 
-function Stat({ label, value, unit }: { label: string; value: string; unit: string }) {
-  return (
-    <div className="text-center px-3 border-l border-slate-100">
-      <p className="text-xs text-slate-400">{label}</p>
-      <p className="text-base font-bold text-slate-700">{value}<span className="text-xs font-normal text-slate-400 ml-0.5">{unit}</span></p>
-    </div>
-  )
-}
