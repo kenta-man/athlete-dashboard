@@ -75,13 +75,13 @@ export default function App() {
             ))}
           </div>
 
-          {/* Session / Matrix toggle (team comparison + GPS only) */}
-          {viewMode === 'comparison' && dataTab === 'gps' && (
+          {/* Session / Matrix toggle (team comparison) */}
+          {viewMode === 'comparison' && (
             <>
               <div className="w-px h-5" style={{ backgroundColor: '#444' }} />
               <div className="flex items-center gap-0" style={{ border: `1px solid #555`, borderRadius: 4, overflow: 'hidden' }}>
                 {([
-                  { key: 'session' as const, label: 'セッション' },
+                  { key: 'session' as const, label: dataTab === 'gps' ? 'セッション' : 'ランキング' },
                   { key: 'matrix'  as const, label: '比較マトリクス' },
                 ]).map(v => (
                   <button key={v.key} onClick={() => setCompView(v.key)}
