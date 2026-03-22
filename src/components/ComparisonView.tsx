@@ -113,6 +113,19 @@ const COND_ALL_GROUPS: { title: string; color: string; metrics: CondMetricDef[] 
   ]},
 ]
 const COND_FLAT_METRICS = COND_ALL_GROUPS.flatMap(g => g.metrics)
+const COND_KPI_METRICS: CondMetricDef[] = [
+  { key: 'weight',             label: '体重',       unit: 'kg',   color: '#3b82f6', decimals: 1 },
+  { key: 'bodyFatPct',         label: '体脂肪率',   unit: '%',    color: '#ef4444', decimals: 1 },
+  { key: 'skeletalMuscleMass', label: '骨格筋量',   unit: 'kg',   color: '#059669', decimals: 1 },
+  { key: 'muscleMass',         label: '筋肉量',     unit: 'kg',   color: '#10b981', decimals: 1 },
+  { key: 'leanBodyMass',       label: '除脂肪量',   unit: 'kg',   color: '#0ea5e9', decimals: 1 },
+  { key: 'bodyWater',          label: '体水分量',   unit: 'L',    color: '#06b6d4', decimals: 1 },
+  { key: 'bmr',                label: '基礎代謝',   unit: 'kcal', color: '#8b5cf6', decimals: 0 },
+  { key: 'hydrationRate',      label: '水和率',     unit: '%',    color: '#0284c7', decimals: 1 },
+  { key: 'phaseAngleWhole',    label: '全身位相角', unit: '°',    color: '#5b21b6', decimals: 1 },
+  { key: 'hrResting',          label: '安静時心拍', unit: 'bpm',  color: '#ef4444', decimals: 0 },
+  { key: 'hrv',                label: 'HRV',        unit: 'ms',   color: '#6366f1', decimals: 0 },
+]
 
 const DISPLAY_POSITIONS = ['GK', 'FP'] as const
 type DisplayPos = typeof DISPLAY_POSITIONS[number]
@@ -302,7 +315,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
   const [condPeriod, setCondPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
 
   /* ── Conditioning matrix state ── */
-  const [condSelectedMatrixMetrics, setCondSelectedMatrixMetrics] = useState<Set<string>>(new Set(['weight']))
+  const [condMatrixMetricKey, setCondMatrixMetricKey] = useState('weight')
   const [condSelectedMatrixKeys, setCondSelectedMatrixKeys] = useState<Set<string>>(new Set())
   const [condMatrixMonthFilter, setCondMatrixMonthFilter] = useState<Set<string>>(new Set())
   const [condSelectedCondPlayers, setCondSelectedCondPlayers] = useState<Set<string>>(new Set())
@@ -310,6 +323,10 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
     setCondSelectedMatrixKeys(new Set())
     setCondMatrixMonthFilter(new Set())
   }, [condPeriod])
+  const [gpsMetricSelectorOpen, setGpsMetricSelectorOpen] = useState(true)
+  const [gpsPeriodOpen, setGpsPeriodOpen] = useState(true)
+  const [condMetricSelectorOpen, setCondMetricSelectorOpen] = useState(true)
+  const [condPeriodOpen, setCondPeriodOpen] = useState(true)
   /* ── GPS matrix range state ── */
   const [matrixRangeStart, setMatrixRangeStart] = useState<string>('')
   const [matrixRangeEnd, setMatrixRangeEnd] = useState<string>('')
@@ -568,7 +585,6 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
     if (condPeriod === 'weekly') return k.replace(/^\d{4}-/, '')
     return `${parseInt(k.slice(5))}月`
   }
-  const condPrimaryMetric = [...condSelectedMatrixMetrics][0] ?? 'weight'
   const condMatrixColGroupAvgs = useMemo(() => {
     const result: Record<string, Record<DisplayPos, number>> = {}
     condFilteredMatrixKeys.forEach(k => {
@@ -577,14 +593,14 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
         const group = condAggPlayers.filter(p => POS_GROUPS[pos].includes(p.position))
         const vals = group.map(p => {
           const d = p.agg.find(a => a.date === k) as unknown as Record<string, number> | undefined
-          return d != null ? (d[condPrimaryMetric] ?? null) : null
+          return d != null ? (d[condMatrixMetricKey] ?? null) : null
         }).filter((v): v is number => v !== null)
         result[k][pos] = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0
       })
     })
     return result
-  }, [condFilteredMatrixKeys, condAggPlayers, condPrimaryMetric])
-  const condActiveMetricDef = COND_FLAT_METRICS.find(m => m.key === condPrimaryMetric) ?? COND_FLAT_METRICS[0]
+  }, [condFilteredMatrixKeys, condAggPlayers, condMatrixMetricKey])
+  const condActiveMetricDef = COND_FLAT_METRICS.find(m => m.key === condMatrixMetricKey) ?? COND_FLAT_METRICS[0]
   const fmtCondVal = (v: number | null, decimals: number) => {
     if (v === null) return '—'
     return decimals === 0 ? Math.round(v).toLocaleString() : v.toFixed(decimals)
@@ -638,21 +654,19 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
 
         {/* 表示期間 selector */}
         <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-          <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
+          <button className="w-full px-3 py-2 flex items-center gap-2 text-left"
+            style={{ backgroundColor: '#1a1a1a' }}
+            onClick={() => setCondPeriodOpen(o => !o)}>
             <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>表示期間</span>
             {(condSelectedMatrixKeys.size > 0 || condMatrixMonthFilter.size > 0) && (
-              <button onClick={() => {
-                setCondSelectedMatrixKeys(new Set()); setCondMatrixMonthFilter(new Set())
-                setCondMatrixRangeStart(condAllMatrixKeys[0] ?? '')
-                setCondMatrixRangeEnd(condAllMatrixKeys[condAllMatrixKeys.length - 1] ?? '')
-              }}
-                className="ml-auto text-[10px] px-2 py-0.5 font-bold"
+              <span className="ml-2 text-[10px] font-bold px-2 py-0.5"
                 style={{ color: '#60a5fa', borderRadius: 2, border: '1px solid #60a5fa33', background: 'transparent' }}>
-                全期間
-              </button>
+                {condFilteredMatrixKeys.length}件選択中
+              </span>
             )}
-          </div>
-          <div className="px-3 pt-2 pb-1">
+            <span className="ml-auto text-[10px]" style={{ color: '#666' }}>{condPeriodOpen ? '▲' : '▼'}</span>
+          </button>
+          {condPeriodOpen && <div className="px-3 pt-2 pb-1">
             <div className="flex items-center gap-2 flex-wrap mb-2">
               <button
                 onClick={() => {
@@ -739,47 +753,98 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                 })}
               </div>
             )}
-          </div>
+          </div>}
         </div>
 
-        {/* Metric selector — all 9 groups in 2-column grid */}
-        <div className="bg-white border border-slate-200 p-3" style={{ borderRadius: 0 }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">項目選択（複数選択可）</span>
-            {condSelectedMatrixMetrics.size > 0 && (
-              <button onClick={() => setCondSelectedMatrixMetrics(new Set(['weight']))}
-                className="text-[10px] font-bold border"
-                style={{ color: '#f87171', borderColor: '#f87171', padding: '1px 6px', borderRadius: 3, background: 'transparent' }}>
-                リセット
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-            {COND_ALL_GROUPS.map(g => (
-              <div key={g.title}>
-                <div className="text-[10px] font-bold mb-1 uppercase tracking-wide" style={{ color: g.color }}>{g.title}</div>
-                <div className="flex flex-wrap gap-1">
-                  {g.metrics.map(m => {
-                    const isSel = condSelectedMatrixMetrics.has(m.key)
-                    const isPrimary = m.key === condPrimaryMetric
-                    return (
-                      <button key={m.key}
-                        onClick={() => setCondSelectedMatrixMetrics(prev => {
-                          const n = new Set(prev); n.has(m.key) ? n.delete(m.key) : n.add(m.key); return n
-                        })}
-                        className="px-2 py-0.5 text-[10px] font-medium border transition-all"
-                        style={isSel
-                          ? { color: '#fff', background: isPrimary ? '#1d4ed8' : '#2563eb', borderColor: '#2563eb', borderRadius: 3, fontWeight: isPrimary ? 700 : 500 }
-                          : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
-                        {m.label}
-                      </button>
-                    )
+        {/* Metric selector — 11 KPI metrics, collapsible */}
+        <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+          <button className="w-full px-4 py-2 flex items-center gap-2 text-left"
+            style={{ backgroundColor: '#1a1a1a' }}
+            onClick={() => setCondMetricSelectorOpen(o => !o)}>
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>項目選択</span>
+            <span className="text-xs font-bold ml-2" style={{ color: '#60a5fa' }}>
+              {COND_KPI_METRICS.find(m => m.key === condMatrixMetricKey)?.label ?? ''}
+            </span>
+            <span className="ml-auto text-[10px]" style={{ color: '#666' }}>{condMetricSelectorOpen ? '▲' : '▼'}</span>
+          </button>
+          {condMetricSelectorOpen && (
+            <div className="p-3 flex flex-wrap gap-2">
+              {COND_KPI_METRICS.map(m => (
+                <button key={m.key}
+                  onClick={() => setCondMatrixMetricKey(m.key)}
+                  className="px-3 py-1.5 text-xs font-medium border transition-all"
+                  style={condMatrixMetricKey === m.key
+                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
+                    : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Chart for selected players — ABOVE the table */}
+        {condSelectedCondPlayers.size > 0 && (() => {
+          const metDef = condActiveMetricDef
+          const chartData = condFilteredMatrixKeys.map(k => {
+            const row: Record<string, any> = { date: k, label: formatCondKey(k) }
+            condSelectedCondPlayers.forEach(id => {
+              const p = condAggPlayers.find(a => a.id === id)
+              const d = p?.agg.find(a => a.date === k) as unknown as Record<string, number> | undefined
+              row[id] = d != null ? (d[condMatrixMetricKey] ?? null) : null
+            })
+            return row
+          })
+          return (
+            <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+              <div className="px-4 py-2 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: metDef.color }} />
+                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
+                  {metDef.label}{metDef.unit ? ` (${metDef.unit})` : ''} 推移グラフ
+                </span>
+                <div className="flex items-center gap-2 ml-auto flex-wrap">
+                  {[...condSelectedCondPlayers].map(id => {
+                    const pl = players.find(p => p.id === id)
+                    return pl ? (
+                      <span key={id} className="flex items-center gap-1 text-[10px] font-medium"
+                        style={{ color: POSITION_COLORS[pl.position] }}>
+                        <span className="inline-block w-3 h-0.5" style={{ backgroundColor: POSITION_COLORS[pl.position] }} />
+                        {pl.name}
+                      </span>
+                    ) : null
                   })}
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+              <div className="p-4">
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" />
+                    <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} domain={['auto', 'auto']}
+                      tickFormatter={(v: number) => fmtCondVal(v, metDef.decimals)} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12 }}
+                      formatter={(v, name) => {
+                        const pl = players.find(p => p.id === name)
+                        return [fmtCondVal(Number(v), metDef.decimals) + (metDef.unit ? ` ${metDef.unit}` : ''), pl?.name ?? name]
+                      }}
+                    />
+                    {[...condSelectedCondPlayers].map(id => {
+                      const pl = players.find(p => p.id === id)
+                      const color = pl ? POSITION_COLORS[pl.position] : '#94a3b8'
+                      return (
+                        <Line key={id} type="monotone" dataKey={id}
+                          stroke={color} strokeWidth={2} dot={{ r: 3, fill: color, strokeWidth: 0 }}
+                          activeDot={{ r: 5, fill: color, strokeWidth: 0 }}
+                          connectNulls />
+                      )
+                    })}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Matrix table (shows primary metric) */}
         <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
@@ -861,7 +926,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                             </td>
                             {condFilteredMatrixKeys.map(k => {
                               const d = aggP?.agg.find(a => a.date === k) as unknown as Record<string, number> | undefined
-                              const val = d != null ? (d[condPrimaryMetric] ?? null) : null
+                              const val = d != null ? (d[condMatrixMetricKey] ?? null) : null
                               const colAvg = condMatrixColGroupAvgs[k]?.[pos] ?? 0
                               const above = val !== null && colAvg > 0 && val > colAvg
                               const hColor = pos === 'GK' ? '#f59e0b' : '#2563eb'
@@ -886,72 +951,6 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
           </div>
         </div>
 
-        {/* Per-metric charts for selected players */}
-        {condSelectedCondPlayers.size > 0 && condSelectedMatrixMetrics.size > 0 && (
-          <div className="space-y-3">
-            {[...condSelectedMatrixMetrics].map(mk => {
-              const metDef = COND_FLAT_METRICS.find(m => m.key === mk) ?? COND_FLAT_METRICS[0]
-              const chartData = condFilteredMatrixKeys.map(k => {
-                const row: Record<string, any> = { date: k, label: formatCondKey(k) }
-                condSelectedCondPlayers.forEach(id => {
-                  const p = condAggPlayers.find(a => a.id === id)
-                  const d = p?.agg.find(a => a.date === k) as unknown as Record<string, number> | undefined
-                  row[id] = d != null ? (d[mk] ?? null) : null
-                })
-                return row
-              })
-              return (
-                <div key={mk} className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-                  <div className="px-4 py-2 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
-                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: metDef.color }} />
-                    <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
-                      {metDef.label}{metDef.unit ? ` (${metDef.unit})` : ''} 推移グラフ
-                    </span>
-                    <div className="flex items-center gap-2 ml-auto flex-wrap">
-                      {[...condSelectedCondPlayers].map(id => {
-                        const pl = players.find(p => p.id === id)
-                        return pl ? (
-                          <span key={id} className="flex items-center gap-1 text-[10px] font-medium"
-                            style={{ color: POSITION_COLORS[pl.position] }}>
-                            <span className="inline-block w-3 h-0.5" style={{ backgroundColor: POSITION_COLORS[pl.position] }} />
-                            {pl.name}
-                          </span>
-                        ) : null
-                      })}
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <ResponsiveContainer width="100%" height={200}>
-                      <LineChart data={chartData}>
-                        <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" />
-                        <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} domain={['auto', 'auto']}
-                          tickFormatter={(v: number) => fmtCondVal(v, metDef.decimals)} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12 }}
-                          formatter={(v, name) => {
-                            const pl = players.find(p => p.id === name)
-                            return [fmtCondVal(Number(v), metDef.decimals) + (metDef.unit ? ` ${metDef.unit}` : ''), pl?.name ?? name]
-                          }}
-                        />
-                        {[...condSelectedCondPlayers].map(id => {
-                          const pl = players.find(p => p.id === id)
-                          const color = pl ? POSITION_COLORS[pl.position] : '#94a3b8'
-                          return (
-                            <Line key={id} type="monotone" dataKey={id}
-                              stroke={color} strokeWidth={2} dot={{ r: 3, fill: color, strokeWidth: 0 }}
-                              activeDot={{ r: 5, fill: color, strokeWidth: 0 }}
-                              connectNulls />
-                          )
-                        })}
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
       </div>
     )
   }
@@ -1212,21 +1211,19 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
 
           {/* 表示期間 selector — TOP */}
           <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-            <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
+            <button className="w-full px-3 py-2 flex items-center gap-2 text-left"
+              style={{ backgroundColor: '#1a1a1a' }}
+              onClick={() => setGpsPeriodOpen(o => !o)}>
               <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>表示期間</span>
               {(selectedMatrixKeys.size > 0 || matrixMonthFilter.size > 0) && (
-                <button onClick={() => {
-                  setSelectedMatrixKeys(new Set()); setMatrixMonthFilter(new Set())
-                  setMatrixRangeStart(allMatrixKeys[0] ?? '')
-                  setMatrixRangeEnd(allMatrixKeys[allMatrixKeys.length - 1] ?? '')
-                }}
-                  className="ml-auto text-[10px] px-2 py-0.5 font-bold"
+                <span className="ml-2 text-[10px] font-bold px-2 py-0.5"
                   style={{ color: '#60a5fa', borderRadius: 2, border: '1px solid #60a5fa33', background: 'transparent' }}>
-                  全期間
-                </button>
+                  {filteredMatrixKeys.length}件選択中
+                </span>
               )}
-            </div>
-            <div className="px-3 pt-2 pb-1">
+              <span className="ml-auto text-[10px]" style={{ color: '#666' }}>{gpsPeriodOpen ? '▲' : '▼'}</span>
+            </button>
+            {gpsPeriodOpen && <div className="px-3 pt-2 pb-1">
               <div className="flex items-center gap-2 flex-wrap mb-2">
                 <button
                   onClick={() => {
@@ -1315,11 +1312,21 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                   })}
                 </div>
               )}
-            </div>
+            </div>}
           </div>
 
           {/* Metric selector: GPS metrics + Zone distance buttons — BELOW 表示期間 */}
-          <div className="bg-white border border-slate-200 p-3 space-y-2" style={{ borderRadius: 0 }}>
+          <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+            <button className="w-full px-4 py-2 flex items-center gap-2 text-left"
+              style={{ backgroundColor: '#1a1a1a' }}
+              onClick={() => setGpsMetricSelectorOpen(o => !o)}>
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>項目選択</span>
+              <span className="text-xs font-bold ml-2" style={{ color: '#60a5fa' }}>
+                {GPS_METRICS.find(m => m.key === matrixMetricKey)?.label ?? ZONE_COLS.find(z => z.key === matrixMetricKey)?.label ?? ''}
+              </span>
+              <span className="ml-auto text-[10px]" style={{ color: '#666' }}>{gpsMetricSelectorOpen ? '▲' : '▼'}</span>
+            </button>
+            {gpsMetricSelectorOpen && <div className="p-3 space-y-2">
             <div className="flex flex-wrap gap-1.5">
               {GPS_METRICS.map(m => (
                 <button key={m.key} onClick={() => setMatrixMetricKey(m.key)}
@@ -1342,8 +1349,56 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                   {z.label}
                 </button>
               ))}
-            </div>
+            </div></div>}
           </div>
+
+          {/* Line chart for selected players — ABOVE the table */}
+          {selectedMatrixPlayers.size > 0 && (
+            <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+              <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
+                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
+                  {matrixMetric.label} 推移グラフ
+                </span>
+                <div className="flex items-center gap-2 ml-auto flex-wrap">
+                  {[...selectedMatrixPlayers].map(id => {
+                    const pl = players.find(p => p.id === id)
+                    return pl ? (
+                      <span key={id} className="flex items-center gap-1 text-[10px] font-medium"
+                        style={{ color: '#2563eb' }}>
+                        <span className="inline-block w-3 h-0.5" style={{ backgroundColor: '#2563eb' }} />
+                        {pl.name}
+                      </span>
+                    ) : null
+                  })}
+                </div>
+              </div>
+              <div className="p-4">
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={matrixChartData}>
+                    <CartesianGrid {...CHART.grid} />
+                    <XAxis dataKey="label" {...CHART.axis} />
+                    <YAxis {...CHART.axis} domain={['auto', 'auto']} />
+                    <Tooltip
+                      {...CHART.tooltip}
+                      formatter={(v, name) => {
+                        const pl = players.find(p => p.id === name)
+                        return [`${Number(v).toLocaleString()} ${matrixMetric.unit}`, pl?.name ?? name]
+                      }}
+                    />
+                    {[...selectedMatrixPlayers].map(id => {
+                      const color = '#2563eb'
+                      return (
+                        <Line key={id} type="monotone" dataKey={id}
+                          stroke={color} strokeWidth={2} dot={{ r: 3, fill: color, strokeWidth: 0 }}
+                          activeDot={{ r: 5, fill: color, strokeWidth: 0 }}
+                          connectNulls />
+                      )
+                    })}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
 
           {/* Time-series matrix table: player rows × date columns */}
           <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
@@ -1454,53 +1509,6 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
             </div>
           </div>
 
-          {/* Line chart for selected players */}
-          {selectedMatrixPlayers.size > 0 && (
-            <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-              <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
-                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
-                  {matrixMetric.label} 推移グラフ
-                </span>
-                <div className="flex items-center gap-2 ml-auto flex-wrap">
-                  {[...selectedMatrixPlayers].map(id => {
-                    const pl = players.find(p => p.id === id)
-                    return pl ? (
-                      <span key={id} className="flex items-center gap-1 text-[10px] font-medium"
-                        style={{ color: '#2563eb' }}>
-                        <span className="inline-block w-3 h-0.5" style={{ backgroundColor: '#2563eb' }} />
-                        {pl.name}
-                      </span>
-                    ) : null
-                  })}
-                </div>
-              </div>
-              <div className="p-4">
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={matrixChartData}>
-                    <CartesianGrid {...CHART.grid} />
-                    <XAxis dataKey="label" {...CHART.axis} />
-                    <YAxis {...CHART.axis} domain={['auto', 'auto']} />
-                    <Tooltip
-                      {...CHART.tooltip}
-                      formatter={(v, name) => {
-                        const pl = players.find(p => p.id === name)
-                        return [`${Number(v).toLocaleString()} ${matrixMetric.unit}`, pl?.name ?? name]
-                      }}
-                    />
-                    {[...selectedMatrixPlayers].map(id => {
-                      const color = '#2563eb'
-                      return (
-                        <Line key={id} type="monotone" dataKey={id}
-                          stroke={color} strokeWidth={2} dot={{ r: 3, fill: color, strokeWidth: 0 }}
-                          activeDot={{ r: 5, fill: color, strokeWidth: 0 }}
-                          connectNulls />
-                      )
-                    })}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
         </>
       )}
     </div>
