@@ -76,7 +76,7 @@ export default function App() {
           </div>
 
           {/* Session / Matrix toggle (team comparison) */}
-          {viewMode === 'comparison' && (
+          {viewMode === 'comparison' && dataTab === 'gps' && (
             <>
               <div className="w-px h-5" style={{ backgroundColor: '#444' }} />
               <div className="flex items-center gap-0" style={{ border: `1px solid #555`, borderRadius: 4, overflow: 'hidden' }}>

@@ -857,34 +857,38 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
             </div>
           ))}
           {/* 選択済み項目ごとに個別グラフを表示 */}
-          {[...selectedMetrics].map(mk => {
-            const def = flatMetrics.find(m => String(m.key) === mk)
-            if (!def) return null
-            return (
-              <div key={mk} className="border-t border-slate-100 pt-3 mt-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: def.color }} />
-                  <span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>
-                    {def.label}{def.unit ? ` (${def.unit})` : ''}
-                  </span>
-                </div>
-                <ResponsiveContainer width="100%" height={180}>
-                  <LineChart data={filtered} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                    <CartesianGrid {...CHART.grid} />
-                    <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
-                    <YAxis {...CHART.axis} {...AUTO_Y} tickCount={5}
-                      tickFormatter={(v: number) => def.decimals === 0 ? Math.round(v).toLocaleString() : v.toFixed(def.decimals)} />
-                    <Tooltip {...CHART.tooltip} labelFormatter={l => formatPeriodLabel(l, period)}
-                      formatter={(v) => [`${Number(v)}${def.unit ? ` ${def.unit}` : ''}`]} />
-                    <Line type="monotone" dataKey={mk}
-                      name={`${def.label}${def.unit ? `(${def.unit})` : ''}`}
-                      stroke={def.color} strokeWidth={2}
-                      dot={{ r: 3, fill: def.color, strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )
-          })}
+          {selectedMetrics.size > 0 && (
+            <div className="grid grid-cols-2 gap-3 mt-1 pt-2 border-t border-slate-100">
+              {[...selectedMetrics].map(mk => {
+                const def = flatMetrics.find(m => String(m.key) === mk)
+                if (!def) return null
+                return (
+                  <div key={mk} className="bg-slate-50 p-2" style={{ borderRadius: 4 }}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: def.color }} />
+                      <span style={{ fontSize: 10, fontWeight: 600, color: '#374151' }}>
+                        {def.label}{def.unit ? ` (${def.unit})` : ''}
+                      </span>
+                    </div>
+                    <ResponsiveContainer width="100%" height={160}>
+                      <LineChart data={filtered} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                        <CartesianGrid {...CHART.grid} />
+                        <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} tick={{ fill: '#94a3b8', fontSize: 9 }} />
+                        <YAxis {...CHART.axis} {...AUTO_Y} tickCount={4} tick={{ fill: '#94a3b8', fontSize: 9 }}
+                          tickFormatter={(v: number) => def.decimals === 0 ? Math.round(v).toLocaleString() : v.toFixed(def.decimals)} />
+                        <Tooltip {...CHART.tooltip} labelFormatter={l => formatPeriodLabel(l, period)}
+                          formatter={(v) => [`${Number(v)}${def.unit ? ` ${def.unit}` : ''}`]} />
+                        <Line type="monotone" dataKey={mk}
+                          name={`${def.label}${def.unit ? `(${def.unit})` : ''}`}
+                          stroke={def.color} strokeWidth={2}
+                          dot={{ r: 2, fill: def.color, strokeWidth: 0 }} activeDot={{ r: 4 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 

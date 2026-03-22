@@ -4,7 +4,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { POSITION_COLORS, type Player } from '../data/sampleData'
-import { aggregateGpsData, aggregateCondData, type Period, formatPeriodLabel } from '../utils/aggregation'
+import { aggregateGpsData, aggregateCondData, type Period } from '../utils/aggregation'
 
 interface Props { players: Player[]; dataTab: 'gps' | 'conditioning'; compView?: 'session' | 'matrix' }
 
@@ -35,17 +35,6 @@ const ZONE_COLS = [
   { key: 'dist_15_20',  label: '15–20km/h', color: '#f59e0b' },
   { key: 'dist_20_25',  label: '20–25km/h', color: '#f97316' },
   { key: 'dist_25plus', label: '25+km/h',   color: '#ef4444' },
-]
-
-const COND_METRICS = [
-  { key: 'bodyFatPct',         label: '体脂肪率',   unit: '%',   accent: '#ef4444' },
-  { key: 'muscleMass',         label: '筋肉量',     unit: 'kg',  accent: '#10b981' },
-  { key: 'skeletalMuscleMass', label: '骨格筋量',   unit: 'kg',  accent: '#059669' },
-  { key: 'weight',             label: '体重',       unit: 'kg',  accent: '#3b82f6' },
-  { key: 'phaseAngleWhole',    label: '全身位相角', unit: '°',   accent: '#8b5cf6' },
-  { key: 'hydrationRate',      label: '水和率',     unit: '%',   accent: '#0ea5e9' },
-  { key: 'hrResting',          label: '安静時心拍', unit: 'bpm', accent: '#ef4444' },
-  { key: 'hrv',                label: 'HRV',        unit: 'ms',  accent: '#6366f1' },
 ]
 
 // All conditioning metrics for matrix (same groups as ConditioningView)
@@ -311,10 +300,9 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
 
   /* ── Conditioning internal state ── */
   const [condPeriod, setCondPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
-  const [condMetricKey, setCondMetricKey] = useState(COND_METRICS[0].key)
 
   /* ── Conditioning matrix state ── */
-  const [condMatrixMetricKey, setCondMatrixMetricKey] = useState('weight')
+  const [condSelectedMatrixMetrics, setCondSelectedMatrixMetrics] = useState<Set<string>>(new Set(['weight']))
   const [condSelectedMatrixKeys, setCondSelectedMatrixKeys] = useState<Set<string>>(new Set())
   const [condMatrixMonthFilter, setCondMatrixMonthFilter] = useState<Set<string>>(new Set())
   const [condSelectedCondPlayers, setCondSelectedCondPlayers] = useState<Set<string>>(new Set())
@@ -322,6 +310,12 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
     setCondSelectedMatrixKeys(new Set())
     setCondMatrixMonthFilter(new Set())
   }, [condPeriod])
+  /* ── GPS matrix range state ── */
+  const [matrixRangeStart, setMatrixRangeStart] = useState<string>('')
+  const [matrixRangeEnd, setMatrixRangeEnd] = useState<string>('')
+  /* ── Conditioning matrix range state ── */
+  const [condMatrixRangeStart, setCondMatrixRangeStart] = useState<string>('')
+  const [condMatrixRangeEnd, setCondMatrixRangeEnd] = useState<string>('')
 
   /* ── Pre-compute GPS agg for all periods ── */
   const gpsAgg = useMemo(() => {
@@ -549,27 +543,6 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
     players.map(p => ({ ...p, agg: aggregateCondData(p.conditioningData, condPeriod) })),
     [players, condPeriod]
   )
-  const activeCondMetric = COND_METRICS.find(m => m.key === condMetricKey) ?? COND_METRICS[0]
-  const condLatestVals = useMemo(() =>
-    condAggPlayers.map(p => {
-      const last = p.agg[p.agg.length - 1] as unknown as Record<string, number>
-      return { id: p.id, name: p.name, pos: p.position, photo: p.photo, value: last ? getVal(last, condMetricKey) : 0 }
-    }).sort((a, b) =>
-      condMetricKey === 'bodyFatPct' || condMetricKey === 'hrResting' ? a.value - b.value : b.value - a.value
-    ),
-    [condAggPlayers, condMetricKey]
-  )
-  const condTrendData = useMemo(() => {
-    const keys = [...new Set(condAggPlayers.flatMap(p => p.agg.map(d => d.date)))].sort()
-    return keys.map(date => {
-      const row: Record<string, unknown> = { date }
-      condAggPlayers.forEach(p => {
-        const d = p.agg.find(x => x.date === date) as unknown as Record<string, number> | undefined
-        row[p.id] = d ? getVal(d, condMetricKey) : null
-      })
-      return row
-    })
-  }, [condAggPlayers, condMetricKey])
 
   /* ── Conditioning matrix computed ── */
   const condAllMatrixKeys = useMemo(() => {
@@ -595,6 +568,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
     if (condPeriod === 'weekly') return k.replace(/^\d{4}-/, '')
     return `${parseInt(k.slice(5))}月`
   }
+  const condPrimaryMetric = [...condSelectedMatrixMetrics][0] ?? 'weight'
   const condMatrixColGroupAvgs = useMemo(() => {
     const result: Record<string, Record<DisplayPos, number>> = {}
     condFilteredMatrixKeys.forEach(k => {
@@ -603,29 +577,42 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
         const group = condAggPlayers.filter(p => POS_GROUPS[pos].includes(p.position))
         const vals = group.map(p => {
           const d = p.agg.find(a => a.date === k) as unknown as Record<string, number> | undefined
-          return d != null ? (d[condMatrixMetricKey] ?? null) : null
+          return d != null ? (d[condPrimaryMetric] ?? null) : null
         }).filter((v): v is number => v !== null)
         result[k][pos] = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0
       })
     })
     return result
-  }, [condFilteredMatrixKeys, condAggPlayers, condMatrixMetricKey])
-  const condMatrixChartData = useMemo(() =>
-    condFilteredMatrixKeys.map(k => {
-      const row: Record<string, any> = { date: k, label: formatCondKey(k) }
-      condSelectedCondPlayers.forEach(id => {
-        const p = condAggPlayers.find(a => a.id === id)
-        const d = p?.agg.find(a => a.date === k) as unknown as Record<string, number> | undefined
-        row[id] = d != null ? (d[condMatrixMetricKey] ?? null) : null
-      })
-      return row
-    }),
-    [condFilteredMatrixKeys, condSelectedCondPlayers, condAggPlayers, condMatrixMetricKey] // eslint-disable-line
-  )
-  const condActiveMetricDef = COND_FLAT_METRICS.find(m => m.key === condMatrixMetricKey) ?? COND_FLAT_METRICS[0]
+  }, [condFilteredMatrixKeys, condAggPlayers, condPrimaryMetric])
+  const condActiveMetricDef = COND_FLAT_METRICS.find(m => m.key === condPrimaryMetric) ?? COND_FLAT_METRICS[0]
   const fmtCondVal = (v: number | null, decimals: number) => {
     if (v === null) return '—'
     return decimals === 0 ? Math.round(v).toLocaleString() : v.toFixed(decimals)
+  }
+  // Initialize GPS matrix range when keys change
+  useEffect(() => {
+    if (allMatrixKeys.length > 0) {
+      setMatrixRangeStart(prev => prev || allMatrixKeys[0])
+      setMatrixRangeEnd(prev => prev || allMatrixKeys[allMatrixKeys.length - 1])
+    }
+  }, [allMatrixKeys])
+  useEffect(() => {
+    if (condAllMatrixKeys.length > 0) {
+      setCondMatrixRangeStart(prev => prev || condAllMatrixKeys[0])
+      setCondMatrixRangeEnd(prev => prev || condAllMatrixKeys[condAllMatrixKeys.length - 1])
+    }
+  }, [condAllMatrixKeys])
+  const applyGpsRange = (start: string, end: string) => {
+    const keys = allMatrixKeys.filter(k => k >= start && k <= end)
+    const isAll = keys.length === allMatrixKeys.length
+    setSelectedMatrixKeys(isAll ? new Set() : new Set(keys))
+    setMatrixMonthFilter(new Set())
+  }
+  const applyCondRange = (start: string, end: string) => {
+    const keys = condAllMatrixKeys.filter(k => k >= start && k <= end)
+    const isAll = keys.length === condAllMatrixKeys.length
+    setCondSelectedMatrixKeys(isAll ? new Set() : new Set(keys))
+    setCondMatrixMonthFilter(new Set())
   }
 
   /* ════════════════════
@@ -634,373 +621,336 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
   if (!isGps) {
     return (
       <div className="space-y-4">
-        {compView !== 'matrix' ? (
-          /* ── Ranking / Trend view ── */
-          <>
-            {/* Header with period selector */}
-            <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-              <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
-                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>コンディショニング比較</span>
-                <div className="flex items-center gap-1 ml-auto">
-                  {MATRIX_PERIODS.map(p => (
-                    <button key={p.key} onClick={() => setCondPeriod(p.key)}
-                      className="px-3 py-1 text-xs font-bold transition-all"
-                      style={condPeriod === p.key
-                        ? { color: '#fff', backgroundColor: '#2563eb', borderRadius: 2 }
-                        : { color: '#999', backgroundColor: 'transparent', borderRadius: 2 }}>
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+        {/* Period selector */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded gap-0.5 p-0.5" style={{ backgroundColor: '#1a1a1a' }}>
+            {MATRIX_PERIODS.map(p => (
+              <button key={p.key} onClick={() => setCondPeriod(p.key)}
+                className="px-4 py-1.5 rounded text-xs font-bold transition-all"
+                style={condPeriod === p.key
+                  ? { backgroundColor: '#2563eb', color: '#fff' }
+                  : { color: '#888', background: 'transparent' }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-            {/* Metric selector */}
-            <div className="flex flex-wrap gap-2">
-              {COND_METRICS.map(m => (
-                <button key={m.key} onClick={() => setCondMetricKey(m.key)}
-                  className="px-3 py-1.5 text-xs font-medium border transition-all"
-                  style={condMetricKey === m.key
-                    ? { color: m.accent, background: m.accent + '12', borderColor: m.accent + '40', borderRadius: 4 }
-                    : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
-                  {m.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Ranking */}
-            <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-              <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
-                <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
-                  {activeCondMetric.label} ランキング {MATRIX_PERIODS.find(p => p.key === condPeriod)?.label}（全{players.length}名）
-                </h3>
+        {/* 表示期間 selector */}
+        <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+          <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>表示期間</span>
+            {(condSelectedMatrixKeys.size > 0 || condMatrixMonthFilter.size > 0) && (
+              <button onClick={() => {
+                setCondSelectedMatrixKeys(new Set()); setCondMatrixMonthFilter(new Set())
+                setCondMatrixRangeStart(condAllMatrixKeys[0] ?? '')
+                setCondMatrixRangeEnd(condAllMatrixKeys[condAllMatrixKeys.length - 1] ?? '')
+              }}
+                className="ml-auto text-[10px] px-2 py-0.5 font-bold"
+                style={{ color: '#60a5fa', borderRadius: 2, border: '1px solid #60a5fa33', background: 'transparent' }}>
+                全期間
+              </button>
+            )}
+          </div>
+          <div className="px-3 pt-2 pb-1">
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <button
+                onClick={() => {
+                  setCondSelectedMatrixKeys(new Set()); setCondMatrixMonthFilter(new Set())
+                  setCondMatrixRangeStart(condAllMatrixKeys[0] ?? '')
+                  setCondMatrixRangeEnd(condAllMatrixKeys[condAllMatrixKeys.length - 1] ?? '')
+                }}
+                className="px-3 py-1 text-xs font-bold border transition-all"
+                style={condSelectedMatrixKeys.size === 0 && condMatrixMonthFilter.size === 0
+                  ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                  : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                全期間
+              </button>
+              <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                <span className="font-medium">範囲</span>
+                <select value={condMatrixRangeStart}
+                  onChange={e => { setCondMatrixRangeStart(e.target.value); applyCondRange(e.target.value, condMatrixRangeEnd) }}
+                  className="border border-slate-200 text-[10px] font-bold px-1 py-0.5 text-slate-700"
+                  style={{ borderRadius: 3, outline: 'none', cursor: 'pointer' }}>
+                  {condAllMatrixKeys.map(k => <option key={k} value={k}>{formatCondKey(k)}</option>)}
+                </select>
+                <span>〜</span>
+                <select value={condMatrixRangeEnd}
+                  onChange={e => { setCondMatrixRangeEnd(e.target.value); applyCondRange(condMatrixRangeStart, e.target.value) }}
+                  className="border border-slate-200 text-[10px] font-bold px-1 py-0.5 text-slate-700"
+                  style={{ borderRadius: 3, outline: 'none', cursor: 'pointer' }}>
+                  {condAllMatrixKeys.map(k => <option key={k} value={k}>{formatCondKey(k)}</option>)}
+                </select>
               </div>
-              <div className="p-5">
-                <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
-                  {condLatestVals.map((d, rank) => {
-                    const color = POSITION_COLORS[d.pos]
-                    const max = condLatestVals[0].value
-                    const pct = max > 0 ? (d.value / max) * 100 : 0
+              <span className="text-[10px] text-slate-400 ml-auto">{condFilteredMatrixKeys.length}件</span>
+            </div>
+            {condPeriod === 'daily' ? (
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap gap-1">
+                  {condAllMatrixMonths.map(m => {
+                    const mNum = parseInt(m.slice(5))
+                    const sel = condMatrixMonthFilter.has(m)
                     return (
-                      <div key={d.id} className="flex items-center gap-2">
-                        <span className="text-xs w-5 text-right flex-shrink-0"
-                          style={{ color: rank < 3 ? '#f59e0b' : '#cbd5e1' }}>{rank + 1}</span>
-                        <img src={d.photo} alt={d.name}
-                          className="w-5 h-5 rounded-full object-cover flex-shrink-0 border border-slate-200"
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                        <span className="text-xs w-32 flex-shrink-0 truncate font-medium text-slate-800">{d.name}</span>
-                        <span className="text-xs w-6 flex-shrink-0 text-slate-600">{d.pos}</span>
-                        <div className="flex-1 h-4 overflow-hidden bg-slate-100" style={{ borderRadius: 2 }}>
-                          <div className="h-full"
-                            style={{ width: `${pct}%`, backgroundColor: color + '30', borderRight: `1.5px solid ${color}` }} />
-                        </div>
-                        <span className="text-xs w-16 text-right flex-shrink-0 font-bold text-slate-800">
-                          {typeof d.value === 'number' ? d.value.toLocaleString() : d.value}
-                          <span className="font-normal text-slate-400 ml-0.5">{activeCondMetric.unit}</span>
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Trend chart */}
-            <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-              <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
-                <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
-                  {activeCondMetric.label} トレンド {MATRIX_PERIODS.find(p => p.key === condPeriod)?.label}
-                </h3>
-              </div>
-              <div className="p-5">
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={condTrendData}>
-                    <CartesianGrid {...CHART.grid} />
-                    <XAxis dataKey="date" tickFormatter={v => formatPeriodLabel(v, condPeriod)} {...CHART.axis} />
-                    <YAxis {...CHART.axis} />
-                    <Tooltip
-                      {...CHART.tooltip}
-                      formatter={(v, name) => {
-                        const p = players.find(p => p.id === name)
-                        return [`${Number(v).toLocaleString()} ${activeCondMetric.unit}`, p?.name ?? name]
-                      }}
-                      labelFormatter={l => formatPeriodLabel(l, condPeriod)}
-                    />
-                    {players.map(p => (
-                      <Line key={p.id} type="monotone" dataKey={p.id}
-                        stroke={POSITION_COLORS[p.position] + '80'}
-                        strokeWidth={1} dot={false}
-                        activeDot={{ r: 3, fill: POSITION_COLORS[p.position], strokeWidth: 0 }}
-                        connectNulls />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </>
-        ) : (
-          /* ── Matrix view ── */
-          <>
-            {/* Period selector */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center rounded gap-0.5 p-0.5" style={{ backgroundColor: '#1a1a1a' }}>
-                {MATRIX_PERIODS.map(p => (
-                  <button key={p.key} onClick={() => setCondPeriod(p.key)}
-                    className="px-4 py-1.5 rounded text-xs font-bold transition-all"
-                    style={condPeriod === p.key
-                      ? { backgroundColor: '#2563eb', color: '#fff' }
-                      : { color: '#888', background: 'transparent' }}>
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 表示期間 selector */}
-            <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-              <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
-                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>表示期間</span>
-                {(condSelectedMatrixKeys.size > 0 || condMatrixMonthFilter.size > 0) && (
-                  <button onClick={() => { setCondSelectedMatrixKeys(new Set()); setCondMatrixMonthFilter(new Set()) }}
-                    className="ml-auto text-[10px] px-2 py-0.5 font-bold"
-                    style={{ color: '#60a5fa', borderRadius: 2, border: '1px solid #60a5fa33', background: 'transparent' }}>
-                    全期間
-                  </button>
-                )}
-              </div>
-              {condPeriod === 'daily' ? (
-                <div className="p-2 space-y-2">
-                  <div className="flex flex-wrap gap-1">
-                    {condAllMatrixMonths.map(m => {
-                      const mNum = parseInt(m.slice(5))
-                      const sel = condMatrixMonthFilter.has(m)
-                      return (
-                        <button key={m}
-                          onClick={() => setCondMatrixMonthFilter(prev => { const n = new Set(prev); sel ? n.delete(m) : n.add(m); return n })}
-                          className="px-3 py-1 text-xs font-bold border transition-all"
-                          style={sel
-                            ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
-                            : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
-                          {mNum}月
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {(condMatrixMonthFilter.size > 0
-                      ? condAllMatrixKeys.filter(k => condMatrixMonthFilter.has(k.slice(0, 7)))
-                      : condAllMatrixKeys
-                    ).map(k => {
-                      const sel = condSelectedMatrixKeys.has(k)
-                      const [, mo, dy] = k.split('-')
-                      return (
-                        <button key={k}
-                          onClick={() => setCondSelectedMatrixKeys(prev => { const n = new Set(prev); sel ? n.delete(k) : n.add(k); return n })}
-                          className="px-2 py-0.5 text-[10px] font-medium border transition-all"
-                          style={sel
-                            ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
-                            : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
-                          {parseInt(mo)}/{parseInt(dy)}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="p-2 flex flex-wrap gap-1">
-                  {condAllMatrixKeys.map(k => {
-                    const sel = condSelectedMatrixKeys.has(k)
-                    return (
-                      <button key={k}
-                        onClick={() => setCondSelectedMatrixKeys(prev => { const n = new Set(prev); sel ? n.delete(k) : n.add(k); return n })}
-                        className="px-2.5 py-1 text-[10px] font-bold border transition-all"
+                      <button key={m}
+                        onClick={() => setCondMatrixMonthFilter(prev => { const n = new Set(prev); sel ? n.delete(m) : n.add(m); return n })}
+                        className="px-3 py-1 text-xs font-bold border transition-all"
                         style={sel
                           ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
                           : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
-                        {formatCondKey(k)}
+                        {mNum}月
                       </button>
                     )
                   })}
                 </div>
-              )}
-            </div>
-
-            {/* Metric selector — all 9 groups in 2-column grid */}
-            <div className="bg-white border border-slate-200 p-3" style={{ borderRadius: 0 }}>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {COND_ALL_GROUPS.map(g => (
-                  <div key={g.title}>
-                    <div className="text-[10px] font-bold mb-1 uppercase tracking-wide" style={{ color: g.color }}>{g.title}</div>
-                    <div className="flex flex-wrap gap-1">
-                      {g.metrics.map(m => (
-                        <button key={m.key} onClick={() => setCondMatrixMetricKey(m.key)}
-                          className="px-2.5 py-0.5 text-[11px] font-medium border transition-all"
-                          style={condMatrixMetricKey === m.key
-                            ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
-                            : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
-                          {m.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                <div className="flex flex-wrap gap-1 pb-1">
+                  {(condMatrixMonthFilter.size > 0
+                    ? condAllMatrixKeys.filter(k => condMatrixMonthFilter.has(k.slice(0, 7)))
+                    : condAllMatrixKeys
+                  ).map(k => {
+                    const sel = condSelectedMatrixKeys.has(k)
+                    const [, mo, dy] = k.split('-')
+                    return (
+                      <button key={k}
+                        onClick={() => setCondSelectedMatrixKeys(prev => { const n = new Set(prev); sel ? n.delete(k) : n.add(k); return n })}
+                        className="px-2 py-0.5 text-[10px] font-medium border transition-all"
+                        style={sel
+                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                          : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                        {parseInt(mo)}/{parseInt(dy)}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-
-            {/* Matrix table */}
-            <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-              <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
-                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
-                  {condActiveMetricDef.label}{condActiveMetricDef.unit ? `（${condActiveMetricDef.unit}）` : ''}　推移比較
-                </span>
-                <span className="text-[10px]" style={{ color: '#888' }}>ポジション平均以上を強調　／　選手名クリックでグラフ表示</span>
-                {condSelectedCondPlayers.size > 0 && (
-                  <button onClick={() => setCondSelectedCondPlayers(new Set())}
-                    className="ml-auto text-[10px] px-2 py-0.5 font-bold"
-                    style={{ color: '#60a5fa', borderRadius: 2, border: '1px solid #60a5fa33', background: 'transparent' }}>
-                    選択解除
-                  </button>
-                )}
+            ) : (
+              <div className="flex flex-wrap gap-1 pb-1">
+                {condAllMatrixKeys.map(k => {
+                  const sel = condSelectedMatrixKeys.has(k)
+                  return (
+                    <button key={k}
+                      onClick={() => setCondSelectedMatrixKeys(prev => { const n = new Set(prev); sel ? n.delete(k) : n.add(k); return n })}
+                      className="px-2.5 py-1 text-[10px] font-bold border transition-all"
+                      style={sel
+                        ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                        : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                      {formatCondKey(k)}
+                    </button>
+                  )
+                })}
               </div>
-              <div className="overflow-x-auto">
-                <table className="text-xs border-collapse" style={{ tableLayout: 'auto' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#2a2a2a' }}>
-                      <th className="text-left py-2 px-3 font-bold sticky left-0 z-10"
-                        style={{ color: '#ccc', backgroundColor: '#2a2a2a', fontSize: 11, minWidth: 130, whiteSpace: 'nowrap' }}>選手</th>
-                      <th className="text-center py-2 px-2 font-bold"
-                        style={{ color: '#ccc', fontSize: 11, width: 48, whiteSpace: 'nowrap' }}>POS</th>
-                      {condFilteredMatrixKeys.map(k => (
-                        <th key={k} className="text-right py-2 px-2 font-bold"
-                          style={{ color: '#ccc', fontSize: 10, whiteSpace: 'nowrap', minWidth: 56 }}>
-                          {formatCondKey(k)}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(['GK', 'FP'] as DisplayPos[]).map(pos => {
-                      const groupColor = pos === 'GK' ? '#f59e0b' : '#6366f1'
-                      const groupLabel = pos === 'GK' ? 'GK' : 'FP（DF / MF / FW）'
-                      const groupBg    = pos === 'GK' ? '#f59e0b15' : '#6366f115'
-                      const posPlayers = matrixPlayerRows.filter(p => POS_GROUPS[pos].includes(p.position))
-                      return (
-                        <>
-                          <tr key={`ch-${pos}`}>
-                            <td colSpan={2 + condFilteredMatrixKeys.length} className="py-1 px-3 text-[10px] font-bold uppercase tracking-wider"
-                              style={{ backgroundColor: groupBg, color: groupColor }}>{groupLabel}</td>
-                          </tr>
-                          <tr key={`ca-${pos}`} style={{ backgroundColor: groupBg }}>
-                            <td className="py-1 px-3 sticky left-0 z-10 text-[10px] font-bold"
-                              style={{ backgroundColor: groupBg, color: groupColor, whiteSpace: 'nowrap' }}>
-                              {pos} 平均
+            )}
+          </div>
+        </div>
+
+        {/* Metric selector — all 9 groups in 2-column grid */}
+        <div className="bg-white border border-slate-200 p-3" style={{ borderRadius: 0 }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">項目選択（複数選択可）</span>
+            {condSelectedMatrixMetrics.size > 0 && (
+              <button onClick={() => setCondSelectedMatrixMetrics(new Set(['weight']))}
+                className="text-[10px] font-bold border"
+                style={{ color: '#f87171', borderColor: '#f87171', padding: '1px 6px', borderRadius: 3, background: 'transparent' }}>
+                リセット
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+            {COND_ALL_GROUPS.map(g => (
+              <div key={g.title}>
+                <div className="text-[10px] font-bold mb-1 uppercase tracking-wide" style={{ color: g.color }}>{g.title}</div>
+                <div className="flex flex-wrap gap-1">
+                  {g.metrics.map(m => {
+                    const isSel = condSelectedMatrixMetrics.has(m.key)
+                    const isPrimary = m.key === condPrimaryMetric
+                    return (
+                      <button key={m.key}
+                        onClick={() => setCondSelectedMatrixMetrics(prev => {
+                          const n = new Set(prev); n.has(m.key) ? n.delete(m.key) : n.add(m.key); return n
+                        })}
+                        className="px-2 py-0.5 text-[10px] font-medium border transition-all"
+                        style={isSel
+                          ? { color: '#fff', background: isPrimary ? '#1d4ed8' : '#2563eb', borderColor: '#2563eb', borderRadius: 3, fontWeight: isPrimary ? 700 : 500 }
+                          : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                        {m.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Matrix table (shows primary metric) */}
+        <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+          <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
+            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
+              {condActiveMetricDef.label}{condActiveMetricDef.unit ? `（${condActiveMetricDef.unit}）` : ''}　推移比較
+            </span>
+            <span className="text-[10px]" style={{ color: '#888' }}>ポジション平均以上を強調　／　選手名クリックでグラフ追加</span>
+            {condSelectedCondPlayers.size > 0 && (
+              <button onClick={() => setCondSelectedCondPlayers(new Set())}
+                className="ml-auto text-[10px] px-2 py-0.5 font-bold"
+                style={{ color: '#60a5fa', borderRadius: 2, border: '1px solid #60a5fa33', background: 'transparent' }}>
+                選択解除
+              </button>
+            )}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse" style={{ tableLayout: 'auto' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#2a2a2a' }}>
+                  <th className="text-left py-2 px-3 font-bold sticky left-0 z-10"
+                    style={{ color: '#ccc', backgroundColor: '#2a2a2a', fontSize: 11, minWidth: 130, whiteSpace: 'nowrap' }}>選手</th>
+                  <th className="text-center py-2 px-2 font-bold"
+                    style={{ color: '#ccc', fontSize: 11, width: 48, whiteSpace: 'nowrap' }}>POS</th>
+                  {condFilteredMatrixKeys.map(k => (
+                    <th key={k} className="text-right py-2 px-2 font-bold"
+                      style={{ color: '#ccc', fontSize: 10, whiteSpace: 'nowrap', minWidth: 56 }}>
+                      {formatCondKey(k)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(['GK', 'FP'] as DisplayPos[]).map(pos => {
+                  const groupColor = pos === 'GK' ? '#f59e0b' : '#6366f1'
+                  const groupLabel = pos === 'GK' ? 'GK' : 'FP（DF / MF / FW）'
+                  const groupBg    = pos === 'GK' ? '#f59e0b15' : '#6366f115'
+                  const posPlayers = matrixPlayerRows.filter(p => POS_GROUPS[pos].includes(p.position))
+                  return (
+                    <>
+                      <tr key={`ch-${pos}`}>
+                        <td colSpan={2 + condFilteredMatrixKeys.length} className="py-1 px-3 text-[10px] font-bold uppercase tracking-wider"
+                          style={{ backgroundColor: groupBg, color: groupColor }}>{groupLabel}</td>
+                      </tr>
+                      <tr key={`ca-${pos}`} style={{ backgroundColor: groupBg }}>
+                        <td className="py-1 px-3 sticky left-0 z-10 text-[10px] font-bold"
+                          style={{ backgroundColor: groupBg, color: groupColor, whiteSpace: 'nowrap' }}>
+                          {pos} 平均
+                        </td>
+                        <td />
+                        {condFilteredMatrixKeys.map(k => {
+                          const avg = condMatrixColGroupAvgs[k]?.[pos] ?? 0
+                          return (
+                            <td key={k} className="text-right py-1 px-2 tabular-nums text-[10px] font-bold"
+                              style={{ color: groupColor }}>
+                              {avg > 0 ? fmtCondVal(avg, condActiveMetricDef.decimals) : '—'}
                             </td>
-                            <td />
+                          )
+                        })}
+                      </tr>
+                      {posPlayers.map(pl => {
+                        const aggP = condAggPlayers.find(a => a.id === pl.id)
+                        const isSelected = condSelectedCondPlayers.has(pl.id)
+                        return (
+                          <tr key={pl.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors"
+                            style={isSelected ? { backgroundColor: '#2563eb12' } : {}}>
+                            <td className="py-1.5 px-3 sticky left-0 z-10 cursor-pointer"
+                              style={{ whiteSpace: 'nowrap', backgroundColor: isSelected ? '#2563eb18' : '#fff' }}
+                              onClick={() => setCondSelectedCondPlayers(prev => { const n = new Set(prev); isSelected ? n.delete(pl.id) : n.add(pl.id); return n })}>
+                              <div className="flex items-center gap-1.5">
+                                <img src={pl.photo} alt={pl.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                                  style={isSelected ? { outline: '2px solid #2563eb', outlineOffset: 1 } : {}}
+                                  onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                <span className="font-medium" style={{ color: isSelected ? '#2563eb' : '#1e293b' }}>{pl.name}</span>
+                              </div>
+                            </td>
+                            <td className="text-center py-1.5 px-2" style={{ whiteSpace: 'nowrap' }}>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">{pl.position}</span>
+                            </td>
                             {condFilteredMatrixKeys.map(k => {
-                              const avg = condMatrixColGroupAvgs[k]?.[pos] ?? 0
+                              const d = aggP?.agg.find(a => a.date === k) as unknown as Record<string, number> | undefined
+                              const val = d != null ? (d[condPrimaryMetric] ?? null) : null
+                              const colAvg = condMatrixColGroupAvgs[k]?.[pos] ?? 0
+                              const above = val !== null && colAvg > 0 && val > colAvg
+                              const hColor = pos === 'GK' ? '#f59e0b' : '#2563eb'
+                              const hBg    = pos === 'GK' ? '#f59e0b18' : '#2563eb18'
                               return (
-                                <td key={k} className="text-right py-1 px-2 tabular-nums text-[10px] font-bold"
-                                  style={{ color: groupColor }}>
-                                  {avg > 0 ? fmtCondVal(avg, condActiveMetricDef.decimals) : '—'}
+                                <td key={k} className="text-right py-1.5 px-2 tabular-nums font-semibold"
+                                  style={val === null ? { color: '#cbd5e1' } : above
+                                    ? { color: hColor, background: hBg }
+                                    : { color: '#1e293b' }}>
+                                  {fmtCondVal(val, condActiveMetricDef.decimals)}
                                 </td>
                               )
                             })}
                           </tr>
-                          {posPlayers.map(pl => {
-                            const aggP = condAggPlayers.find(a => a.id === pl.id)
-                            const isSelected = condSelectedCondPlayers.has(pl.id)
-                            const selColor = '#2563eb'
-                            return (
-                              <tr key={pl.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors"
-                                style={isSelected ? { backgroundColor: selColor + '12' } : {}}>
-                                <td className="py-1.5 px-3 sticky left-0 z-10 cursor-pointer"
-                                  style={{ whiteSpace: 'nowrap', backgroundColor: isSelected ? selColor + '18' : '#fff' }}
-                                  onClick={() => setCondSelectedCondPlayers(prev => { const n = new Set(prev); isSelected ? n.delete(pl.id) : n.add(pl.id); return n })}>
-                                  <div className="flex items-center gap-1.5">
-                                    <img src={pl.photo} alt={pl.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
-                                      style={isSelected ? { outline: `2px solid ${selColor}`, outlineOffset: 1 } : {}}
-                                      onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                                    <span className="font-medium" style={{ color: isSelected ? selColor : '#1e293b' }}>{pl.name}</span>
-                                  </div>
-                                </td>
-                                <td className="text-center py-1.5 px-2" style={{ whiteSpace: 'nowrap' }}>
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">{pl.position}</span>
-                                </td>
-                                {condFilteredMatrixKeys.map(k => {
-                                  const d = aggP?.agg.find(a => a.date === k) as unknown as Record<string, number> | undefined
-                                  const val = d != null ? (d[condMatrixMetricKey] ?? null) : null
-                                  const colAvg = condMatrixColGroupAvgs[k]?.[pos] ?? 0
-                                  const above = val !== null && colAvg > 0 && val > colAvg
-                                  const hColor = pos === 'GK' ? '#f59e0b' : '#2563eb'
-                                  const hBg    = pos === 'GK' ? '#f59e0b18' : '#2563eb18'
-                                  return (
-                                    <td key={k} className="text-right py-1.5 px-2 tabular-nums font-semibold"
-                                      style={val === null ? { color: '#cbd5e1' } : above
-                                        ? { color: hColor, background: hBg }
-                                        : { color: '#1e293b' }}>
-                                      {fmtCondVal(val, condActiveMetricDef.decimals)}
-                                    </td>
-                                  )
-                                })}
-                              </tr>
-                            )
-                          })}
-                        </>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Line chart for selected players */}
-            {condSelectedCondPlayers.size > 0 && (
-              <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-                <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
-                  <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
-                    {condActiveMetricDef.label} 推移グラフ
-                  </span>
-                  <div className="flex items-center gap-2 ml-auto flex-wrap">
-                    {[...condSelectedCondPlayers].map(id => {
-                      const pl = players.find(p => p.id === id)
-                      return pl ? (
-                        <span key={id} className="flex items-center gap-1 text-[10px] font-medium"
-                          style={{ color: '#2563eb' }}>
-                          <span className="inline-block w-3 h-0.5" style={{ backgroundColor: '#2563eb' }} />
-                          {pl.name}
-                        </span>
-                      ) : null
-                    })}
-                  </div>
-                </div>
-                <div className="p-4">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={condMatrixChartData}>
-                      <CartesianGrid {...CHART.grid} />
-                      <XAxis dataKey="label" {...CHART.axis} />
-                      <YAxis {...CHART.axis} domain={['auto', 'auto']} />
-                      <Tooltip
-                        {...CHART.tooltip}
-                        formatter={(v, name) => {
-                          const pl = players.find(p => p.id === name)
-                          return [fmtCondVal(Number(v), condActiveMetricDef.decimals) + (condActiveMetricDef.unit ? ` ${condActiveMetricDef.unit}` : ''), pl?.name ?? name]
-                        }}
-                      />
-                      {[...condSelectedCondPlayers].map(id => {
-                        const color = '#2563eb'
-                        return (
-                          <Line key={id} type="monotone" dataKey={id}
-                            stroke={color} strokeWidth={2} dot={{ r: 3, fill: color, strokeWidth: 0 }}
-                            activeDot={{ r: 5, fill: color, strokeWidth: 0 }}
-                            connectNulls />
                         )
                       })}
-                    </LineChart>
-                  </ResponsiveContainer>
+                    </>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Per-metric charts for selected players */}
+        {condSelectedCondPlayers.size > 0 && condSelectedMatrixMetrics.size > 0 && (
+          <div className="space-y-3">
+            {[...condSelectedMatrixMetrics].map(mk => {
+              const metDef = COND_FLAT_METRICS.find(m => m.key === mk) ?? COND_FLAT_METRICS[0]
+              const chartData = condFilteredMatrixKeys.map(k => {
+                const row: Record<string, any> = { date: k, label: formatCondKey(k) }
+                condSelectedCondPlayers.forEach(id => {
+                  const p = condAggPlayers.find(a => a.id === id)
+                  const d = p?.agg.find(a => a.date === k) as unknown as Record<string, number> | undefined
+                  row[id] = d != null ? (d[mk] ?? null) : null
+                })
+                return row
+              })
+              return (
+                <div key={mk} className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+                  <div className="px-4 py-2 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: metDef.color }} />
+                    <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
+                      {metDef.label}{metDef.unit ? ` (${metDef.unit})` : ''} 推移グラフ
+                    </span>
+                    <div className="flex items-center gap-2 ml-auto flex-wrap">
+                      {[...condSelectedCondPlayers].map(id => {
+                        const pl = players.find(p => p.id === id)
+                        return pl ? (
+                          <span key={id} className="flex items-center gap-1 text-[10px] font-medium"
+                            style={{ color: POSITION_COLORS[pl.position] }}>
+                            <span className="inline-block w-3 h-0.5" style={{ backgroundColor: POSITION_COLORS[pl.position] }} />
+                            {pl.name}
+                          </span>
+                        ) : null
+                      })}
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={chartData}>
+                        <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" />
+                        <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} domain={['auto', 'auto']}
+                          tickFormatter={(v: number) => fmtCondVal(v, metDef.decimals)} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12 }}
+                          formatter={(v, name) => {
+                            const pl = players.find(p => p.id === name)
+                            return [fmtCondVal(Number(v), metDef.decimals) + (metDef.unit ? ` ${metDef.unit}` : ''), pl?.name ?? name]
+                          }}
+                        />
+                        {[...condSelectedCondPlayers].map(id => {
+                          const pl = players.find(p => p.id === id)
+                          const color = pl ? POSITION_COLORS[pl.position] : '#94a3b8'
+                          return (
+                            <Line key={id} type="monotone" dataKey={id}
+                              stroke={color} strokeWidth={2} dot={{ r: 3, fill: color, strokeWidth: 0 }}
+                              activeDot={{ r: 5, fill: color, strokeWidth: 0 }}
+                              connectNulls />
+                          )
+                        })}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
-              </div>
-            )}
-          </>
+              )
+            })}
+          </div>
         )}
       </div>
     )
@@ -1265,70 +1215,107 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
             <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
               <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>表示期間</span>
               {(selectedMatrixKeys.size > 0 || matrixMonthFilter.size > 0) && (
-                <button onClick={() => { setSelectedMatrixKeys(new Set()); setMatrixMonthFilter(new Set()) }}
+                <button onClick={() => {
+                  setSelectedMatrixKeys(new Set()); setMatrixMonthFilter(new Set())
+                  setMatrixRangeStart(allMatrixKeys[0] ?? '')
+                  setMatrixRangeEnd(allMatrixKeys[allMatrixKeys.length - 1] ?? '')
+                }}
                   className="ml-auto text-[10px] px-2 py-0.5 font-bold"
                   style={{ color: '#60a5fa', borderRadius: 2, border: '1px solid #60a5fa33', background: 'transparent' }}>
                   全期間
                 </button>
               )}
             </div>
-            {matrixPeriod === 'daily' ? (
-              <div className="p-2 space-y-2">
-                {/* Month filter tabs for daily */}
-                <div className="flex flex-wrap gap-1">
-                  {allMatrixMonths.map(m => {
-                    const mNum = parseInt(m.slice(5))
-                    const sel = matrixMonthFilter.has(m)
-                    return (
-                      <button key={m}
-                        onClick={() => setMatrixMonthFilter(prev => { const n = new Set(prev); sel ? n.delete(m) : n.add(m); return n })}
-                        className="px-3 py-1 text-xs font-bold border transition-all"
-                        style={sel
-                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
-                          : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
-                        {mNum}月
-                      </button>
-                    )
-                  })}
+            <div className="px-3 pt-2 pb-1">
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <button
+                  onClick={() => {
+                    setSelectedMatrixKeys(new Set()); setMatrixMonthFilter(new Set())
+                    setMatrixRangeStart(allMatrixKeys[0] ?? '')
+                    setMatrixRangeEnd(allMatrixKeys[allMatrixKeys.length - 1] ?? '')
+                  }}
+                  className="px-3 py-1 text-xs font-bold border transition-all"
+                  style={selectedMatrixKeys.size === 0 && matrixMonthFilter.size === 0
+                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                    : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                  全期間
+                </button>
+                <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                  <span className="font-medium">範囲</span>
+                  <select value={matrixRangeStart}
+                    onChange={e => { setMatrixRangeStart(e.target.value); applyGpsRange(e.target.value, matrixRangeEnd) }}
+                    className="border border-slate-200 text-[10px] font-bold px-1 py-0.5 text-slate-700"
+                    style={{ borderRadius: 3, outline: 'none', cursor: 'pointer' }}>
+                    {allMatrixKeys.map(k => <option key={k} value={k}>{formatMatrixKey(k)}</option>)}
+                  </select>
+                  <span>〜</span>
+                  <select value={matrixRangeEnd}
+                    onChange={e => { setMatrixRangeEnd(e.target.value); applyGpsRange(matrixRangeStart, e.target.value) }}
+                    className="border border-slate-200 text-[10px] font-bold px-1 py-0.5 text-slate-700"
+                    style={{ borderRadius: 3, outline: 'none', cursor: 'pointer' }}>
+                    {allMatrixKeys.map(k => <option key={k} value={k}>{formatMatrixKey(k)}</option>)}
+                  </select>
                 </div>
-                {/* Day pills for visible dates */}
-                <div className="flex flex-wrap gap-1">
-                  {(matrixMonthFilter.size > 0
-                    ? allMatrixKeys.filter(k => matrixMonthFilter.has(k.slice(0, 7)))
-                    : allMatrixKeys
-                  ).map(k => {
+                <span className="text-[10px] text-slate-400 ml-auto">{filteredMatrixKeys.length}件</span>
+              </div>
+              {matrixPeriod === 'daily' ? (
+                <div className="space-y-1.5 pb-1">
+                  {/* Month filter tabs for daily */}
+                  <div className="flex flex-wrap gap-1">
+                    {allMatrixMonths.map(m => {
+                      const mNum = parseInt(m.slice(5))
+                      const sel = matrixMonthFilter.has(m)
+                      return (
+                        <button key={m}
+                          onClick={() => setMatrixMonthFilter(prev => { const n = new Set(prev); sel ? n.delete(m) : n.add(m); return n })}
+                          className="px-3 py-1 text-xs font-bold border transition-all"
+                          style={sel
+                            ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                            : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                          {mNum}月
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {/* Day pills for visible dates */}
+                  <div className="flex flex-wrap gap-1 pb-1">
+                    {(matrixMonthFilter.size > 0
+                      ? allMatrixKeys.filter(k => matrixMonthFilter.has(k.slice(0, 7)))
+                      : allMatrixKeys
+                    ).map(k => {
+                      const sel = selectedMatrixKeys.has(k)
+                      const [, mo, dy] = k.split('-')
+                      return (
+                        <button key={k}
+                          onClick={() => setSelectedMatrixKeys(prev => { const n = new Set(prev); sel ? n.delete(k) : n.add(k); return n })}
+                          className="px-2 py-0.5 text-[10px] font-medium border transition-all"
+                          style={sel
+                            ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                            : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                          {parseInt(mo)}/{parseInt(dy)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-1 pb-1">
+                  {allMatrixKeys.map(k => {
                     const sel = selectedMatrixKeys.has(k)
-                    const [, mo, dy] = k.split('-')
                     return (
                       <button key={k}
                         onClick={() => setSelectedMatrixKeys(prev => { const n = new Set(prev); sel ? n.delete(k) : n.add(k); return n })}
-                        className="px-2 py-0.5 text-[10px] font-medium border transition-all"
+                        className="px-2.5 py-1 text-[10px] font-bold border transition-all"
                         style={sel
                           ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
                           : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
-                        {parseInt(mo)}/{parseInt(dy)}
+                        {formatMatrixKey(k)}
                       </button>
                     )
                   })}
                 </div>
-              </div>
-            ) : (
-              <div className="p-2 flex flex-wrap gap-1">
-                {allMatrixKeys.map(k => {
-                  const sel = selectedMatrixKeys.has(k)
-                  return (
-                    <button key={k}
-                      onClick={() => setSelectedMatrixKeys(prev => { const n = new Set(prev); sel ? n.delete(k) : n.add(k); return n })}
-                      className="px-2.5 py-1 text-[10px] font-bold border transition-all"
-                      style={sel
-                        ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
-                        : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
-                      {formatMatrixKey(k)}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Metric selector: GPS metrics + Zone distance buttons — BELOW 表示期間 */}
