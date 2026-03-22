@@ -421,7 +421,7 @@ function RecentTrendCharts({ data }: { data: ConditioningData[] }) {
       <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
         <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#ddd' }}>直近10回 推移グラフ</p>
       </div>
-      <div className="p-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="p-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
         {charts.map(ch => (
           <div key={ch.title} className="border border-slate-100 overflow-hidden" style={{ borderRadius: 0 }}>
             <div className="px-2.5 py-1.5 flex items-center gap-1.5" style={{ backgroundColor: '#222' }}>
