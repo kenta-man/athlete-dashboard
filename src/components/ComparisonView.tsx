@@ -726,23 +726,24 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                 <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>GPSデータ一覧</span>
               </div>
               <div className="overflow-x-auto">
-                <table className="text-xs border-collapse">
+                <table className="text-xs border-collapse w-full">
                   <thead>
                     <tr style={{ backgroundColor: '#2a2a2a' }}>
                       <th className="text-left py-2 px-2 font-bold sticky left-0 z-10"
                         style={{ color: '#ccc', backgroundColor: '#2a2a2a', width: 120, minWidth: 120, maxWidth: 120 }}>選手</th>
                       <th className="text-center py-2 px-2 font-bold"
-                        style={{ color: '#ccc', width: 44 }}>POS</th>
+                        style={{ color: '#ccc', width: 40 }}>POS</th>
                       {GPS_METRICS.map(m => {
                         const [line1, line2] = TABLE_HEADER[m.key] ?? [m.label, '']
                         const isSort = sessionTableSort.key === m.key
                         return (
                           <th key={m.key}
                             className="text-right py-2 px-2 font-bold cursor-pointer select-none transition-colors"
-                            style={{ color: isSort ? '#60a5fa' : '#ccc', width: 60, verticalAlign: 'bottom', lineHeight: 1.3 }}
+                            style={{ color: isSort ? '#60a5fa' : '#ccc', verticalAlign: 'bottom', lineHeight: 1.3 }}
                             onClick={() => handleSessionTableSort(m.key)}>
                             <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{line1}</span>
                             {line2 && <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{line2}</span>}
+                            <span style={{ display: 'block', fontSize: 9, opacity: 0.5, whiteSpace: 'nowrap' }}>{m.unit}</span>
                             <span style={{ display: 'block', fontSize: 9, opacity: 0.6 }}>{isSort ? (sessionTableSort.dir === 'desc' ? '↓' : '↑') : '↕'}</span>
                           </th>
                         )
@@ -753,10 +754,11 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                         return (
                           <th key={z.key}
                             className="text-right py-2 px-2 font-bold cursor-pointer select-none transition-colors"
-                            style={{ color: isSort ? '#60a5fa' : '#aaa', width: 60, verticalAlign: 'bottom', lineHeight: 1.3 }}
+                            style={{ color: isSort ? '#60a5fa' : '#aaa', verticalAlign: 'bottom', lineHeight: 1.3 }}
                             onClick={() => handleSessionTableSort(z.key)}>
                             <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{line1}</span>
                             {line2 && <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{line2}</span>}
+                            <span style={{ display: 'block', fontSize: 9, opacity: 0.5, whiteSpace: 'nowrap' }}>m</span>
                             <span style={{ display: 'block', fontSize: 9, opacity: 0.6 }}>{isSort ? (sessionTableSort.dir === 'desc' ? '↓' : '↑') : '↕'}</span>
                           </th>
                         )
@@ -784,7 +786,6 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                             const posGroup: DisplayPos = POS_GROUPS.GK.includes(p.position) ? 'GK' : 'FP'
                             const hColor = posGroup === 'GK' ? '#f59e0b' : '#2563eb'
                             const hBg    = posGroup === 'GK' ? '#f59e0b18' : '#2563eb18'
-                            const hUnit  = posGroup === 'GK' ? '#fcd34d' : '#93c5fd'
                             return (
                               <>
                                 {GPS_METRICS.map(m => {
@@ -795,7 +796,6 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                                     <td key={m.key} className="text-right py-1.5 px-2 tabular-nums font-semibold"
                                       style={above ? { color: hColor, background: hBg } : { color: '#1e293b' }}>
                                       {val.toLocaleString()}
-                                      <span className="text-[9px] font-normal ml-0.5" style={{ color: above ? hUnit : '#94a3b8' }}>{m.unit}</span>
                                     </td>
                                   )
                                 })}
@@ -807,7 +807,6 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                                     <td key={z.key} className="text-right py-1.5 px-2 tabular-nums font-semibold"
                                       style={above ? { color: hColor, background: hBg } : { color: '#475569' }}>
                                       {val.toLocaleString()}
-                                      <span className="text-[9px] font-normal ml-0.5" style={{ color: above ? hUnit : '#94a3b8' }}>m</span>
                                     </td>
                                   )
                                 })}
@@ -1031,10 +1030,12 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                                 const val = d ? getVal(d, matrixMetricKey) : null
                                 const colAvg = matrixColGroupAvgs[k]?.[pos] ?? 0
                                 const above = val !== null && colAvg > 0 && val > colAvg
+                                const hColor = pos === 'GK' ? '#f59e0b' : '#2563eb'
+                                const hBg    = pos === 'GK' ? '#f59e0b18' : '#2563eb18'
                                 return (
                                   <td key={k} className="text-right py-1.5 px-2 tabular-nums font-semibold"
                                     style={val === null ? { color: '#cbd5e1' } : above
-                                      ? { color: matrixMetric.accent, background: matrixMetric.accent + '12' }
+                                      ? { color: hColor, background: hBg }
                                       : { color: '#1e293b' }}>
                                     {val !== null ? val.toLocaleString() : '—'}
                                   </td>
