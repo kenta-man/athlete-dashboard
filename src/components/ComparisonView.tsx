@@ -825,24 +825,26 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
               )}
             </div>
 
-            {/* Metric selector — all 9 groups */}
-            <div className="bg-white border border-slate-200 p-3 space-y-3" style={{ borderRadius: 0 }}>
-              {COND_ALL_GROUPS.map(g => (
-                <div key={g.title}>
-                  <div className="text-[10px] font-bold mb-1.5 uppercase tracking-wide" style={{ color: g.color }}>{g.title}</div>
-                  <div className="flex flex-wrap gap-1">
-                    {g.metrics.map(m => (
-                      <button key={m.key} onClick={() => setCondMatrixMetricKey(m.key)}
-                        className="px-2.5 py-1 text-[11px] font-medium border transition-all"
-                        style={condMatrixMetricKey === m.key
-                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
-                          : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
-                        {m.label}
-                      </button>
-                    ))}
+            {/* Metric selector — all 9 groups in 2-column grid */}
+            <div className="bg-white border border-slate-200 p-3" style={{ borderRadius: 0 }}>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                {COND_ALL_GROUPS.map(g => (
+                  <div key={g.title}>
+                    <div className="text-[10px] font-bold mb-1 uppercase tracking-wide" style={{ color: g.color }}>{g.title}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {g.metrics.map(m => (
+                        <button key={m.key} onClick={() => setCondMatrixMetricKey(m.key)}
+                          className="px-2.5 py-0.5 text-[11px] font-medium border transition-all"
+                          style={condMatrixMetricKey === m.key
+                            ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                            : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             {/* Matrix table */}
@@ -907,7 +909,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                           {posPlayers.map(pl => {
                             const aggP = condAggPlayers.find(a => a.id === pl.id)
                             const isSelected = condSelectedCondPlayers.has(pl.id)
-                            const selColor = POSITION_COLORS[pl.position]
+                            const selColor = '#2563eb'
                             return (
                               <tr key={pl.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors"
                                 style={isSelected ? { backgroundColor: selColor + '12' } : {}}>
@@ -963,8 +965,8 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                       const pl = players.find(p => p.id === id)
                       return pl ? (
                         <span key={id} className="flex items-center gap-1 text-[10px] font-medium"
-                          style={{ color: POSITION_COLORS[pl.position] }}>
-                          <span className="inline-block w-3 h-0.5" style={{ backgroundColor: POSITION_COLORS[pl.position] }} />
+                          style={{ color: '#2563eb' }}>
+                          <span className="inline-block w-3 h-0.5" style={{ backgroundColor: '#2563eb' }} />
                           {pl.name}
                         </span>
                       ) : null
@@ -985,8 +987,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                         }}
                       />
                       {[...condSelectedCondPlayers].map(id => {
-                        const pl = players.find(p => p.id === id)
-                        const color = pl ? POSITION_COLORS[pl.position] : '#94a3b8'
+                        const color = '#2563eb'
                         return (
                           <Line key={id} type="monotone" dataKey={id}
                             stroke={color} strokeWidth={2} dot={{ r: 3, fill: color, strokeWidth: 0 }}
@@ -1422,7 +1423,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                         {posPlayers.map(pl => {
                           const aggP = gpsAgg[matrixPeriod].find((a: any) => a.id === pl.id)
                           const isSelected = selectedMatrixPlayers.has(pl.id)
-                          const selColor = POSITION_COLORS[pl.position]
+                          const selColor = '#2563eb'
                           return (
                             <tr key={pl.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors"
                               style={isSelected ? { backgroundColor: selColor + '12' } : {}}>
@@ -1478,8 +1479,8 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                     const pl = players.find(p => p.id === id)
                     return pl ? (
                       <span key={id} className="flex items-center gap-1 text-[10px] font-medium"
-                        style={{ color: POSITION_COLORS[pl.position] }}>
-                        <span className="inline-block w-3 h-0.5" style={{ backgroundColor: POSITION_COLORS[pl.position] }} />
+                        style={{ color: '#2563eb' }}>
+                        <span className="inline-block w-3 h-0.5" style={{ backgroundColor: '#2563eb' }} />
                         {pl.name}
                       </span>
                     ) : null
@@ -1500,8 +1501,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                       }}
                     />
                     {[...selectedMatrixPlayers].map(id => {
-                      const pl = players.find(p => p.id === id)
-                      const color = pl ? POSITION_COLORS[pl.position] : '#94a3b8'
+                      const color = '#2563eb'
                       return (
                         <Line key={id} type="monotone" dataKey={id}
                           stroke={color} strokeWidth={2} dot={{ r: 3, fill: color, strokeWidth: 0 }}
