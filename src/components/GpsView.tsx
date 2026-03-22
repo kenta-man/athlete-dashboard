@@ -89,8 +89,10 @@ function SessionSummary({ data }: { data: GpsData[] }) {
   const [idx, setIdx] = useState(data.length - 1)
 
   const months = [...new Set(data.map(d => d.date.slice(0, 7)))].sort()
-  const [selectedMonth, setSelectedMonth] = useState(data[data.length - 1].date.slice(0, 7))
-  const monthSessions = data.map((d, i) => ({ ...d, idx: i })).filter(d => d.date.startsWith(selectedMonth))
+  const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set([data[data.length - 1].date.slice(0, 7)]))
+  const monthSessions = data.map((d, i) => ({ ...d, idx: i })).filter(d =>
+    selectedMonths.size === 0 || [...selectedMonths].some(m => d.date.startsWith(m))
+  )
 
   const s = data[idx]
   const pct25plus = +(100 - s.ratio_0_7 - s.ratio_7_15 - s.ratio_15_20 - s.ratio_20_25).toFixed(1)
@@ -109,97 +111,101 @@ function SessionSummary({ data }: { data: GpsData[] }) {
 
   return (
     <div className="space-y-4">
-      {/* Session selector */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">セッション選択</p>
-        <div className="flex gap-1.5 flex-wrap mb-3">
-          {months.map(m => {
-            const monthNum = parseInt(m.slice(5))
-            const hasSelected = data[idx].date.startsWith(m)
-            return (
-              <button key={m} onClick={() => setSelectedMonth(m)}
-                className="px-3 py-1 rounded-lg text-xs font-semibold border transition-all"
-                style={selectedMonth === m
-                  ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
-                  : hasSelected
-                    ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
-                    : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
-                {monthNum}月
-              </button>
-            )
-          })}
-        </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {monthSessions.map(d => {
-            const match    = d.sessionType === 'match'
-            const selected = idx === d.idx
-            return (
-              <button key={d.date} onClick={() => setIdx(d.idx)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all"
-                style={selected
-                  ? match
-                    ? { color: '#dc2626', background: '#fef2f2', borderColor: '#fca5a5' }
-                    : { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
-                  : match
-                    ? { color: '#f87171', borderColor: '#fecaca', background: '#fff5f5' }
-                    : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
-                {match && <span>⚽</span>}
-                {d.date.slice(8)}日
-              </button>
-            )
-          })}
-        </div>
-        <div className="flex items-center gap-4 mt-2.5">
-          <span className="flex items-center gap-1 text-xs text-slate-400">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-blue-100 border border-blue-300" />トレーニング
-          </span>
-          <span className="flex items-center gap-1 text-xs text-red-400">
-            <span>⚽</span>試合
-          </span>
-        </div>
-      </div>
+      {/* Session Info (left, narrow) + Session selector (right) */}
+      <div className="grid gap-3" style={{ gridTemplateColumns: '170px 1fr' }}>
 
-      {/* Session Info */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">セッション情報</p>
-        <div className="flex items-center gap-6 flex-wrap">
+        {/* Session Info - left, narrow */}
+        <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col gap-2">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">セッション情報</p>
           <div>
-            <p className="text-xs text-slate-400 mb-0.5">日時</p>
-            <p className="text-sm font-bold text-slate-800">{s.date}（{dow}）</p>
+            <p className="text-[10px] text-slate-400">日時</p>
+            <p className="text-xs font-bold text-slate-800">{s.date}（{dow}）</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400 mb-0.5">開始時間</p>
-            <p className="text-sm font-bold text-slate-800">{s.startTime ?? '—'}</p>
+            <p className="text-[10px] text-slate-400">開始時間</p>
+            <p className="text-xs font-bold text-slate-800">{s.startTime ?? '—'}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400 mb-0.5">種別</p>
+            <p className="text-[10px] text-slate-400 mb-0.5">種別</p>
             {isMatch
-              ? <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-200">⚽ 試合</span>
-              : <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200">🏃 トレーニング</span>
+              ? <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">⚽ 試合</span>
+              : <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">🏃 練習</span>
             }
           </div>
           {isMatch && s.opponent && (
             <>
               <div>
-                <p className="text-xs text-slate-400 mb-0.5">対戦相手</p>
-                <p className="text-sm font-bold text-slate-800">
+                <p className="text-[10px] text-slate-400">対戦相手</p>
+                <p className="text-xs font-bold text-slate-800">
                   {s.venue === 'H' ? '🏠' : '✈️'} {s.opponent}
-                  <span className="ml-1.5 text-xs font-normal px-1.5 py-0.5 rounded"
-                    style={s.venue === 'H'
-                      ? { color: '#2563eb', background: '#eff6ff' }
-                      : { color: '#7c3aed', background: '#f5f3ff' }}>
+                  <span className="ml-1 text-[10px] font-normal px-1 py-0.5 rounded"
+                    style={s.venue === 'H' ? { color: '#2563eb', background: '#eff6ff' } : { color: '#7c3aed', background: '#f5f3ff' }}>
                     {s.venue === 'H' ? 'HOME' : 'AWAY'}
                   </span>
                 </p>
               </div>
               {s.score && (
                 <div>
-                  <p className="text-xs text-slate-400 mb-0.5">スコア</p>
-                  <p className="text-sm font-bold text-slate-800">{s.score}</p>
+                  <p className="text-[10px] text-slate-400">スコア</p>
+                  <p className="text-xs font-bold text-slate-800">{s.score}</p>
                 </div>
               )}
             </>
           )}
+        </div>
+
+        {/* Session Selector - right */}
+        <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">セッション選択</p>
+          {/* Month tabs */}
+          <div className="flex gap-1 flex-wrap mb-2">
+            {months.map(m => {
+              const monthNum = parseInt(m.slice(5))
+              const isSel = selectedMonths.has(m)
+              const hasCurrentSession = data[idx].date.startsWith(m)
+              return (
+                <button key={m} onClick={() => setSelectedMonths(prev => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n })}
+                  className="px-4 py-1.5 rounded-lg text-sm font-bold border transition-all"
+                  style={isSel
+                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                    : hasCurrentSession
+                      ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
+                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                  {monthNum}月
+                </button>
+              )
+            })}
+          </div>
+          {/* Date pills grid */}
+          <div className="grid grid-cols-7 gap-1 overflow-y-auto flex-1" style={{ maxHeight: 110, scrollbarWidth: 'none' }}>
+            {monthSessions.map(d => {
+              const match    = d.sessionType === 'match'
+              const selected = idx === d.idx
+              return (
+                <button key={d.date} onClick={() => setIdx(d.idx)}
+                  className="flex items-center justify-center gap-0.5 py-0.5 rounded text-[9px] font-medium border transition-all"
+                  style={selected
+                    ? match
+                      ? { color: '#dc2626', background: '#fef2f2', borderColor: '#fca5a5' }
+                      : { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
+                    : match
+                      ? { color: '#f87171', borderColor: '#fecaca', background: '#fff5f5' }
+                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                  {match && <span style={{ fontSize: 9 }}>⚽</span>}
+                  {d.date.slice(8)}
+                </button>
+              )
+            })}
+          </div>
+          {/* Legend */}
+          <div className="flex items-center gap-3 mt-2">
+            <span className="flex items-center gap-1 text-[10px] text-slate-400">
+              <span className="inline-block w-2 h-2 rounded-sm bg-blue-100 border border-blue-300" />練習
+            </span>
+            <span className="flex items-center gap-1 text-[10px] text-red-400">
+              <span style={{ fontSize: 9 }}>⚽</span>試合
+            </span>
+          </div>
         </div>
       </div>
 
@@ -282,14 +288,42 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
   const fmt = (k: string) => formatPeriodLabel(k, period)
   const allKeys = useMemo(() => data.map(d => d.date), [data])
 
-  const [range, setRange] = useState({ start: allKeys[0], end: allKeys[allKeys.length - 1] })
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
+  const [selectedDailyMonths, setSelectedDailyMonths] = useState<Set<string>>(new Set())
+  const [daysOpen, setDaysOpen] = useState(false)
   useEffect(() => {
-    setRange({ start: allKeys[0], end: allKeys[allKeys.length - 1] })
+    setSelectedKeys(new Set())
+    setSelectedDailyMonths(new Set())
+    setDaysOpen(false)
   }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const dailyMonths = useMemo(() =>
+    period === 'daily' ? [...new Set(allKeys.map(k => k.slice(0, 7)))].sort() : [],
+    [allKeys, period]
+  )
+  const dailyMonthKeys = useMemo(() =>
+    selectedDailyMonths.size === 0 ? allKeys : allKeys.filter(k => [...selectedDailyMonths].some(m => k.startsWith(m))),
+    [allKeys, selectedDailyMonths]
+  )
+
+  // Derive range from selectedKeys (empty = full range)
+  const range = useMemo(() => {
+    if (selectedKeys.size === 0) return { start: allKeys[0], end: allKeys[allKeys.length - 1] }
+    const sorted = [...selectedKeys].filter(k => allKeys.includes(k)).sort()
+    if (sorted.length === 0) return { start: allKeys[0], end: allKeys[allKeys.length - 1] }
+    return { start: sorted[0], end: sorted[sorted.length - 1] }
+  }, [selectedKeys, allKeys])
+
+  function toggleKey(k: string) {
+    setSelectedKeys(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n })
+  }
+  function applyRange(start: string, end: string) {
+    setSelectedKeys(new Set(allKeys.filter(k => k >= start && k <= end)))
+  }
+
   const filtered = useMemo(
-    () => data.filter(d => d.date >= range.start && d.date <= range.end),
-    [data, range]
+    () => selectedKeys.size === 0 ? data : data.filter(d => selectedKeys.has(d.date)),
+    [data, selectedKeys]
   )
   const latest = filtered.length > 0 ? filtered[filtered.length - 1] : data[data.length - 1]
   const avgStats = useMemo(() => avgKpiStats(filtered), [filtered])
@@ -348,24 +382,138 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
     { h1: 'Explosive', h2: 'Effort(回)', render: d => <span className="text-amber-600 font-medium">{d.explosiveEfforts}</span> },
     { h1: '走行時間', h2: '(min)',    render: d => <span className="text-slate-400">{d.running}</span> },
   ]
+  const VISIBLE_COLS = period === 'daily' ? TABLE_COLS : TABLE_COLS.filter(col => col.h1 !== '種別')
 
   return (
     <div className="space-y-4">
-      {/* Date range selector */}
-      <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center gap-3 flex-wrap">
-        <span className="text-xs font-semibold text-slate-700">表示期間</span>
-        <select value={range.start}
-          onChange={e => setRange(r => ({ ...r, start: e.target.value }))}
-          className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 bg-white outline-none focus:border-blue-400">
-          {allKeys.map(k => <option key={k} value={k}>{formatPeriodLabel(k, period)}</option>)}
-        </select>
-        <span className="text-xs text-slate-400">〜</span>
-        <select value={range.end}
-          onChange={e => setRange(r => ({ ...r, end: e.target.value }))}
-          className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 bg-white outline-none focus:border-blue-400">
-          {allKeys.map(k => <option key={k} value={k}>{formatPeriodLabel(k, period)}</option>)}
-        </select>
-        <span className="text-xs text-slate-400">{filtered.length} {period === 'daily' ? 'セッション' : periodUnit}</span>
+      {/* Period selector */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
+        {/* Header row: label + 全期間 + count */}
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">表示期間</p>
+          <button
+            onClick={() => { setSelectedKeys(new Set()); setSelectedDailyMonths(new Set()) }}
+            className="px-2 py-0.5 rounded text-[11px] font-semibold border transition-all"
+            style={selectedKeys.size === 0
+              ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+              : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+            全期間
+          </button>
+          <span className="text-[10px] text-slate-400 ml-auto">{filtered.length} {period === 'daily' ? 'セッション' : periodUnit}</span>
+        </div>
+
+        {/* Range dropdowns */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-slate-400">範囲</span>
+          <select value={range.start}
+            onChange={e => applyRange(e.target.value, range.end)}
+            className="text-[11px] border border-slate-200 rounded px-1.5 py-1 text-slate-700 bg-white outline-none focus:border-blue-400">
+            {allKeys.map(k => <option key={k} value={k}>{formatPeriodLabel(k, period)}</option>)}
+          </select>
+          <span className="text-[10px] text-slate-400">〜</span>
+          <select value={range.end}
+            onChange={e => applyRange(range.start, e.target.value)}
+            className="text-[11px] border border-slate-200 rounded px-1.5 py-1 text-slate-700 bg-white outline-none focus:border-blue-400">
+            {allKeys.map(k => <option key={k} value={k}>{formatPeriodLabel(k, period)}</option>)}
+          </select>
+        </div>
+
+        {/* Daily: month tabs + collapsible day section */}
+        {period === 'daily' && (
+          <>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {dailyMonths.map(m => {
+                const monthNum = parseInt(m.slice(5))
+                const isSel = selectedDailyMonths.has(m)
+                return (
+                  <button key={m}
+                    onClick={() => setSelectedDailyMonths(prev => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n })}
+                    className="px-3 py-1.5 rounded-lg text-sm font-bold border transition-all"
+                    style={isSel
+                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                    {monthNum}月
+                  </button>
+                )
+              })}
+            </div>
+            {/* Collapsible day section */}
+            <div>
+              <button
+                onClick={() => setDaysOpen(o => !o)}
+                className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 mb-1 hover:text-slate-600 transition-colors">
+                <svg className="w-3 h-3 transition-transform" style={{ transform: daysOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                </svg>
+                日を選択 {selectedKeys.size > 0 && `(${selectedKeys.size}件選択中)`}
+              </button>
+              {daysOpen && (
+                <div className="grid grid-cols-7 gap-1">
+                  {dailyMonthKeys.map(d => {
+                    const isSel = selectedKeys.has(d)
+                    const inRange = d >= range.start && d <= range.end && selectedKeys.size > 0
+                    const mNum = parseInt(d.slice(5, 7))
+                    const dayNum = parseInt(d.slice(8))
+                    return (
+                      <button key={d} onClick={() => toggleKey(d)}
+                        className="py-0.5 rounded text-[9px] font-medium border transition-all text-center leading-tight"
+                        style={isSel
+                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', fontWeight: 700 }
+                          : inRange
+                            ? { color: '#2563eb', background: '#eff6ff', borderColor: '#bfdbfe' }
+                            : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                        {`${mNum}月${dayNum}日`}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Weekly: week buttons (multi-select) */}
+        {period === 'weekly' && (
+          <div className="flex gap-1 flex-wrap">
+            {allKeys.map(k => {
+              const isSel = selectedKeys.has(k)
+              const inRange = k >= range.start && k <= range.end && selectedKeys.size > 0
+              return (
+                <button key={k} onClick={() => toggleKey(k)}
+                  className="px-2 py-0.5 rounded text-[11px] font-semibold border transition-all"
+                  style={isSel
+                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                    : inRange
+                      ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
+                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                  {fmt(k)}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Monthly: month buttons (multi-select) */}
+        {period === 'monthly' && (
+          <div className="flex gap-1 flex-wrap">
+            {allKeys.map(k => {
+              const isSel = selectedKeys.has(k)
+              const inRange = k >= range.start && k <= range.end && selectedKeys.size > 0
+              return (
+                <button key={k} onClick={() => toggleKey(k)}
+                  className="px-2 py-0.5 rounded text-[11px] font-semibold border transition-all"
+                  style={isSel
+                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                    : inRange
+                      ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
+                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
+                  {fmt(k)}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* KPI Row — averages */}
@@ -505,7 +653,7 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
           <table className="w-full text-xs text-left">
             <thead>
               <tr className="border-b border-slate-100">
-                {TABLE_COLS.map((col, i) => (
+                {VISIBLE_COLS.map((col, i) => (
                   <th key={i} className="px-2 py-2 font-semibold text-slate-500 text-center whitespace-nowrap leading-tight">
                     <div>{col.h1}</div>
                     {col.h2 && <div className="text-slate-400 font-normal">{col.h2}</div>}
@@ -516,7 +664,7 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
             <tbody>
               {[...filtered].reverse().map(d => (
                 <tr key={d.date} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                  {TABLE_COLS.map((col, i) => (
+                  {VISIBLE_COLS.map((col, i) => (
                     <td key={i} className="px-2 py-2 text-center whitespace-nowrap">{col.render(d)}</td>
                   ))}
                 </tr>

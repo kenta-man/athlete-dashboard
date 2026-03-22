@@ -73,17 +73,19 @@ export default function App() {
 
           <div className="w-px h-5 bg-slate-200" />
 
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-slate-400 mr-1">期間</span>
-            {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
-              <button key={p} onClick={() => setPeriod(p)}
-                className="px-3 py-1.5 rounded-md text-xs font-medium transition-all border"
-                style={period === p
-                  ? { color: '#475569', background: '#f1f5f9', borderColor: '#e2e8f0' }
-                  : { color: '#94a3b8', borderColor: 'transparent', background: 'transparent' }}>
-                {PERIOD_LABELS[p]}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-slate-500">期間</span>
+            <div className="flex items-center rounded-lg p-0.5" style={{ background: '#e2e8f0' }}>
+              {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
+                <button key={p} onClick={() => setPeriod(p)}
+                  className="px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
+                  style={period === p
+                    ? { background: '#fff', color: '#1d4ed8', boxShadow: '0 1px 3px rgba(0,0,0,0.14)', fontWeight: 700 }
+                    : { color: '#64748b', background: 'transparent' }}>
+                  {PERIOD_LABELS[p]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
