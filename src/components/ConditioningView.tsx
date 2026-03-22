@@ -430,16 +430,16 @@ function RecentTrendCharts({ data }: { data: ConditioningData[] }) {
             </div>
             <div className="p-1">
               <ResponsiveContainer width="100%" height={130}>
-                <LineChart data={recent} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                <LineChart data={recent} margin={{ top: 8, right: ch.dualY ? 4 : 8, left: -4, bottom: 0 }}>
                   <CartesianGrid {...miniChart.grid} />
                   <XAxis dataKey="date" tickFormatter={fmt} {...miniChart.axis} interval="preserveStartEnd" />
                   {ch.dualY ? (
                     <>
-                      <YAxis yAxisId="l" {...miniChart.axis} domain={AUTO_Y.domain} width={36} />
-                      <YAxis yAxisId="r" orientation="right" {...miniChart.axis} domain={AUTO_Y.domain} width={28} />
+                      <YAxis yAxisId="l" {...miniChart.axis} domain={AUTO_Y.domain} width={32} tickCount={4} tickFormatter={(v: number) => v % 1 === 0 ? String(v) : v.toFixed(1)} />
+                      <YAxis yAxisId="r" orientation="right" {...miniChart.axis} domain={AUTO_Y.domain} width={30} tickCount={4} tickFormatter={(v: number) => v % 1 === 0 ? String(v) : v.toFixed(2)} />
                     </>
                   ) : (
-                    <YAxis {...miniChart.axis} domain={AUTO_Y.domain} width={36} />
+                    <YAxis {...miniChart.axis} domain={AUTO_Y.domain} width={32} tickCount={4} tickFormatter={(v: number) => v % 1 === 0 ? String(v) : v.toFixed(1)} />
                   )}
                   <Tooltip {...miniChart.tooltip} labelFormatter={l => String(l)} />
                   {ch.lines.length > 1 && <Legend {...miniChart.legend} />}

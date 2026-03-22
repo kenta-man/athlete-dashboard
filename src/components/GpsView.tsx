@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  Legend, ResponsiveContainer,
 } from 'recharts'
 import type { GpsData, Player } from '../data/sampleData'
 import { type Period, formatPeriodLabel } from '../utils/aggregation'
@@ -336,22 +336,12 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
   const latest = filtered.length > 0 ? filtered[filtered.length - 1] : data[data.length - 1]
   const avgStats = useMemo(() => avgKpiStats(filtered), [filtered])
 
-  const isAgg = period === 'weekly' || period === 'monthly'
-
   const speedZone = [
     { zone: '0–7',  dist: latest.dist_0_7,   pct: latest.ratio_0_7 },
     { zone: '7–15', dist: latest.dist_7_15,  pct: latest.ratio_7_15 },
     { zone: '15–20',dist: latest.dist_15_20, pct: latest.ratio_15_20 },
     { zone: '20–25',dist: latest.dist_20_25, pct: latest.ratio_20_25 },
     { zone: '25+',  dist: latest.dist_25plus,pct: +(100-latest.ratio_0_7-latest.ratio_7_15-latest.ratio_15_20-latest.ratio_20_25).toFixed(1) },
-  ]
-  const radarData = [
-    { s: '走行距離', v: Math.min(100, Math.round(latest.totalDistance / (isAgg ? 300 : 100))) },
-    { s: '最高速度', v: Math.min(100, Math.round(latest.maxSpeed * 3)) },
-    { s: 'EF',       v: Math.min(100, latest.explosiveEfforts * 5) },
-    { s: '高速走行', v: Math.min(100, Math.round((latest.dist_20_25 + latest.dist_25plus) / (isAgg ? 30 : 10))) },
-    { s: '加速',     v: Math.min(100, latest.accel_3ms2 * (isAgg ? 2 : 4)) },
-    { s: '減速',     v: Math.min(100, latest.decel_3ms2 * (isAgg ? 2 : 4)) },
   ]
   const trendWithHsr = filtered.map(d => ({
     ...d,
@@ -568,33 +558,6 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
         </Card>
       </div>
 
-      {/* 走行強度 + 時間 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card title="１分あたりの走行距離（走行強度）">
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={trendWithHsr}>
-              <CartesianGrid {...CHART.grid} />
-              <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
-              <YAxis {...CHART.axis} {...AUTO_Y} tickFormatter={(v: number) => v.toLocaleString()} />
-              <Tooltip {...CHART.tooltip} formatter={(v) => [`${Number(v).toLocaleString()} m/min`]} labelFormatter={l => formatPeriodLabel(l, period)} />
-              <Line type="monotone" dataKey="intensity" name="走行強度 (m/min)" stroke="#0284c7" strokeWidth={2} dot={{ r: 2, fill: '#0284c7', strokeWidth: 0 }} activeDot={{ r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
-
-        <Card title="走行時間">
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={filtered}>
-              <CartesianGrid {...CHART.grid} />
-              <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
-              <YAxis {...CHART.axis} {...AUTO_Y} tickFormatter={(v: number) => v.toLocaleString()} />
-              <Tooltip {...CHART.tooltip} formatter={(v) => [`${Number(v).toLocaleString()} min`]} labelFormatter={l => formatPeriodLabel(l, period)} />
-              <Line type="monotone" dataKey="running" name="走行時間 (min)" stroke="#7c3aed" strokeWidth={2} dot={{ r: 2, fill: '#7c3aed', strokeWidth: 0 }} activeDot={{ r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card title="速度帯別距離（最新）">
           <ResponsiveContainer width="100%" height={200}>
@@ -605,17 +568,6 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
               <Tooltip {...CHART.tooltip} formatter={(v) => [`${Number(v).toLocaleString()} m`]} />
               <Bar dataKey="dist" name="距離 (m)" fill="#3b82f6" radius={4} background={{ fill: '#f8fafc', radius: 4 }} />
             </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        <Card title="運動強度（最新）">
-          <ResponsiveContainer width="100%" height={200}>
-            <RadarChart data={radarData} margin={{ top: 10, right: 25, bottom: 10, left: 25 }}>
-              <PolarGrid stroke="#f1f5f9" />
-              <PolarAngleAxis dataKey="s" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-              <PolarRadiusAxis tick={false} axisLine={false} domain={[0, 100]} />
-              <Radar dataKey="v" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.2} strokeWidth={2} />
-            </RadarChart>
           </ResponsiveContainer>
         </Card>
       </div>
