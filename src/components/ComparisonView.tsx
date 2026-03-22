@@ -63,6 +63,21 @@ function getVal(obj: Record<string, unknown>, key: string): number {
   return (obj as unknown as Record<string, number>)[key] ?? 0
 }
 
+const TABLE_HEADER: Record<string, [string, string]> = {
+  totalDistance:    ['総走行', '距離'],
+  hsr:              ['HSR', '20km/h+'],
+  intensity:        ['1分/走行', '距離'],
+  maxSpeed:         ['最高', '速度'],
+  explosiveEfforts: ['Explosive', 'Effort'],
+  accel_3ms2:       ['加速', ''],
+  decel_3ms2:       ['減速', ''],
+  dist_0_7:         ['0–7', 'km/h'],
+  dist_7_15:        ['7–15', 'km/h'],
+  dist_15_20:       ['15–20', 'km/h'],
+  dist_20_25:       ['20–25', 'km/h'],
+  dist_25plus:      ['25+', 'km/h'],
+}
+
 /* ── Ranking bar pair component ── */
 function RankingPair({
   leftTitle, leftRanking, leftUnit, leftFpAvg, leftGkAvg,
@@ -203,6 +218,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
   /* ── GPS session state ── */
   const [selectedSessionDate, setSelectedSessionDate] = useState('')
   const [selectedSessionMonth, setSelectedSessionMonth] = useState('')
+  const [sessionTableSort, setSessionTableSort] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'totalDistance', dir: 'desc' })
 
   /* ── GPS matrix state ── */
   const [matrixMetricKey, setMatrixMetricKey] = useState('totalDistance')
@@ -354,6 +370,17 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
   }
 
   const sessionPosAvgs = useMemo(() => computePosAvgs(sessionPlayersOnDate, true), [sessionPlayersOnDate])
+
+  const sessionTablePlayers = useMemo(() =>
+    [...sessionPlayersOnDate].sort((a: any, b: any) => {
+      const av = getVal(a.session ?? {}, sessionTableSort.key)
+      const bv = getVal(b.session ?? {}, sessionTableSort.key)
+      return sessionTableSort.dir === 'desc' ? bv - av : av - bv
+    }),
+    [sessionPlayersOnDate, sessionTableSort]
+  )
+  const handleSessionTableSort = (key: string) =>
+    setSessionTableSort(prev => prev.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' })
 
   /* ── Rankings ── */
   const makeRanking = (aggPlayers: any[], key: string, fromSession = false) =>
@@ -663,6 +690,101 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
 
           {/* Player cards */}
           <SessionDaySummary aggPlayers={gpsAgg.session} selectedDate={selectedSessionDate} />
+
+          {/* Sortable GPS data table */}
+          {sessionTablePlayers.length > 0 && (
+            <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+              <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>GPSデータ一覧</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="text-xs border-collapse w-full">
+                  <thead>
+                    <tr style={{ backgroundColor: '#2a2a2a' }}>
+                      <th className="text-left py-2 px-3 font-bold sticky left-0 z-10"
+                        style={{ color: '#ccc', backgroundColor: '#2a2a2a', minWidth: 130, whiteSpace: 'nowrap' }}>選手</th>
+                      <th className="text-center py-2 px-2 font-bold"
+                        style={{ color: '#ccc', width: 44 }}>POS</th>
+                      {GPS_METRICS.map(m => {
+                        const [line1, line2] = TABLE_HEADER[m.key] ?? [m.label, '']
+                        const isSort = sessionTableSort.key === m.key
+                        return (
+                          <th key={m.key}
+                            className="text-right py-2 px-2 font-bold cursor-pointer select-none transition-colors"
+                            style={{ color: isSort ? '#60a5fa' : '#ccc', width: 60, verticalAlign: 'bottom', lineHeight: 1.3 }}
+                            onClick={() => handleSessionTableSort(m.key)}>
+                            <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{line1}</span>
+                            {line2 && <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{line2}</span>}
+                            <span style={{ display: 'block', fontSize: 9, opacity: 0.6 }}>{isSort ? (sessionTableSort.dir === 'desc' ? '↓' : '↑') : '↕'}</span>
+                          </th>
+                        )
+                      })}
+                      {/* Zone separator */}
+                      <th className="py-2 px-1" style={{ color: '#888', fontSize: 9, whiteSpace: 'nowrap', verticalAlign: 'bottom', borderLeft: '1px solid #444' }}>ZONE別</th>
+                      {ZONE_COLS.map(z => {
+                        const [line1, line2] = TABLE_HEADER[z.key] ?? [z.label, '']
+                        const isSort = sessionTableSort.key === z.key
+                        return (
+                          <th key={z.key}
+                            className="text-right py-2 px-2 font-bold cursor-pointer select-none transition-colors"
+                            style={{ color: isSort ? '#60a5fa' : '#aaa', width: 60, verticalAlign: 'bottom', lineHeight: 1.3 }}
+                            onClick={() => handleSessionTableSort(z.key)}>
+                            <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{line1}</span>
+                            {line2 && <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{line2}</span>}
+                            <span style={{ display: 'block', fontSize: 9, opacity: 0.6 }}>{isSort ? (sessionTableSort.dir === 'desc' ? '↓' : '↑') : '↕'}</span>
+                          </th>
+                        )
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sessionTablePlayers.map((p: any, i: number) => {
+                      const s = p.session as any
+                      const rowBg = i % 2 !== 0 ? '#f8fafc' : '#fff'
+                      return (
+                        <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors"
+                          style={i % 2 !== 0 ? { backgroundColor: '#f8fafc' } : {}}>
+                          <td className="py-1.5 px-3 sticky left-0 z-10" style={{ backgroundColor: rowBg, whiteSpace: 'nowrap' }}>
+                            <div className="flex items-center gap-1.5">
+                              <img src={p.photo} alt={p.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                              <span className="font-medium text-slate-800">{p.name}</span>
+                            </div>
+                          </td>
+                          <td className="text-center py-1.5 px-2">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">{p.position}</span>
+                          </td>
+                          {GPS_METRICS.map(m => {
+                            const val = getVal(s ?? {}, m.key)
+                            const isSort = sessionTableSort.key === m.key
+                            return (
+                              <td key={m.key} className="text-right py-1.5 px-2 tabular-nums font-semibold"
+                                style={{ color: isSort ? '#2563eb' : '#1e293b' }}>
+                                {val.toLocaleString()}
+                                <span className="text-[9px] font-normal text-slate-400 ml-0.5">{m.unit}</span>
+                              </td>
+                            )
+                          })}
+                          <td style={{ borderLeft: '1px solid #e2e8f0' }} />
+                          {ZONE_COLS.map(z => {
+                            const val = getVal(s ?? {}, z.key)
+                            const isSort = sessionTableSort.key === z.key
+                            return (
+                              <td key={z.key} className="text-right py-1.5 px-2 tabular-nums font-semibold"
+                                style={{ color: isSort ? '#2563eb' : '#475569' }}>
+                                {val.toLocaleString()}
+                                <span className="text-[9px] font-normal text-slate-400 ml-0.5">m</span>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </>
       )}
 
