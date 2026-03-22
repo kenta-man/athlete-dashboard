@@ -265,17 +265,17 @@ function SessionDaySummary({ aggPlayers, selectedDate }: { aggPlayers: any[]; se
                   className="w-6 h-6 rounded-full object-cover border border-slate-200 flex-shrink-0"
                   onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                 <div className="min-w-0">
-                  <p className="text-[10px] font-bold truncate text-slate-800">{p.name}</p>
+                  <p className="text-xs font-bold truncate text-slate-800">{p.name}</p>
                   <span className="text-[8px] font-bold px-1 py-0.5" style={{ background: '#1a1a1a', color: '#fff', borderRadius: 2 }}>{p.position}</span>
                 </div>
               </div>
               <div className="space-y-0.5">
                 {GPS_METRICS.map((m: any) => (
                   <div key={m.key} className="flex items-center justify-between">
-                    <span className="text-[8px] text-slate-400 truncate pr-1">{m.label}</span>
-                    <span className="text-[10px] font-bold text-slate-800 flex-shrink-0 tabular-nums">
+                    <span className="text-[10px] text-slate-700 truncate pr-1">{m.label}</span>
+                    <span className="text-xs font-bold text-slate-800 flex-shrink-0 tabular-nums">
                       {(getVal(s, m.key) || 0).toLocaleString()}
-                      <span className="text-[8px] font-normal text-slate-400 ml-0.5">{m.unit}</span>
+                      <span className="text-[9px] font-normal text-slate-500 ml-0.5">{m.unit}</span>
                     </span>
                   </div>
                 ))}
@@ -1002,12 +1002,48 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                         <p className="text-xs font-bold text-slate-800">{sessionScore}</p>
                       </div>
                     )}
+                    {(sessionSample?.weather || sessionSample?.attendance) && (
+                      <div className="pt-1 border-t border-slate-100 space-y-1.5 mt-1">
+                        {sessionSample?.weather && (
+                          <div>
+                            <p className="text-[10px] text-slate-400">天候</p>
+                            <p className="text-xs font-bold text-slate-800">
+                              {sessionSample.weather === '晴' ? '☀️ 晴' : sessionSample.weather === '曇' ? '☁️ 曇' : '🌧 雨'}
+                            </p>
+                          </div>
+                        )}
+                        {sessionSample?.attendance && (
+                          <div>
+                            <p className="text-[10px] text-slate-400">入場者数</p>
+                            <p className="text-xs font-bold text-slate-800">{sessionSample.attendance.toLocaleString()} 人</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
                 <div className="mt-auto">
                   <p className="text-[10px] text-slate-400">データ</p>
                   <p className="text-sm font-bold text-slate-800">{sessionPlayersOnDate.length}<span className="text-xs font-normal text-slate-400 ml-0.5">名</span></p>
                 </div>
+                {sessionIsMatch && (
+                  <>
+                    <div>
+                      <p className="text-[10px] text-slate-400">スタメン</p>
+                      <p className="text-sm font-bold text-slate-800">
+                        {sessionPlayersOnDate.filter((p: any) => p.session?.isStarter === true).length}
+                        <span className="text-xs font-normal text-slate-400 ml-0.5">名</span>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400">途中出場</p>
+                      <p className="text-sm font-bold text-slate-800">
+                        {sessionPlayersOnDate.filter((p: any) => p.session?.isStarter === false).length}
+                        <span className="text-xs font-normal text-slate-400 ml-0.5">名</span>
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

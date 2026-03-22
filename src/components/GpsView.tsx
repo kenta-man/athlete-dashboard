@@ -333,16 +333,8 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
     () => selectedKeys.size === 0 ? data : data.filter(d => selectedKeys.has(d.date)),
     [data, selectedKeys]
   )
-  const latest = filtered.length > 0 ? filtered[filtered.length - 1] : data[data.length - 1]
   const avgStats = useMemo(() => avgKpiStats(filtered), [filtered])
 
-  const speedZone = [
-    { zone: '0–7',  dist: latest.dist_0_7,   pct: latest.ratio_0_7 },
-    { zone: '7–15', dist: latest.dist_7_15,  pct: latest.ratio_7_15 },
-    { zone: '15–20',dist: latest.dist_15_20, pct: latest.ratio_15_20 },
-    { zone: '20–25',dist: latest.dist_20_25, pct: latest.ratio_20_25 },
-    { zone: '25+',  dist: latest.dist_25plus,pct: +(100-latest.ratio_0_7-latest.ratio_7_15-latest.ratio_15_20-latest.ratio_20_25).toFixed(1) },
-  ]
   const trendWithHsr = filtered.map(d => ({
     ...d,
     hsr: d.dist_20_25 + d.dist_25plus,
@@ -521,7 +513,7 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
       {/* KPI Row — averages */}
       <KpiRow stats={avgStats} label="統計" period={period} />
 
-      {/* ── 走行距離 ／ HSR グラフ：横並び ── */}
+      {/* ── Row 1: 走行距離 ／ １分あたりの走行距離 ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card title="走行距離">
           <ResponsiveContainer width="100%" height={210}>
@@ -540,6 +532,26 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
           </ResponsiveContainer>
         </Card>
 
+        <Card title="１分あたりの走行距離">
+          <ResponsiveContainer width="100%" height={210}>
+            <LineChart data={trendWithHsr}>
+              <CartesianGrid {...CHART.grid} />
+              <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
+              <YAxis {...CHART.axis} {...AUTO_Y} tickFormatter={(v: number) => v.toLocaleString()} />
+              <Tooltip {...CHART.tooltip}
+                formatter={(v) => [`${Number(v).toLocaleString()} m/min`]}
+                labelFormatter={l => formatPeriodLabel(l, period)} />
+              <Legend {...CHART.legend} />
+              <Line type="monotone" dataKey="intensity" name="１分あたり走行距離 (m/min)"
+                stroke="#0284c7" strokeWidth={2}
+                dot={{ r: 2, fill: '#0284c7', strokeWidth: 0 }} activeDot={{ r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      {/* ── Row 2: HSR ／ 高速走行回数 ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card title="HSR（20km/h 以上）">
           <ResponsiveContainer width="100%" height={210}>
             <LineChart data={trendWithHsr}>
@@ -556,24 +568,30 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
             </LineChart>
           </ResponsiveContainer>
         </Card>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card title="速度帯別距離（最新）">
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={speedZone} layout="vertical" barSize={14}>
+        <Card title="高速走行回数">
+          <ResponsiveContainer width="100%" height={210}>
+            <BarChart data={filtered.map(d => ({
+              date: d.date,
+              '15–20km/h': d.count_15_20,
+              '20–25km/h': d.count_20_25,
+              '25+km/h':   d.count_25plus,
+            }))} barSize={period === 'monthly' ? 36 : 8}>
               <CartesianGrid {...CHART.grid} />
-              <XAxis type="number" {...CHART.axis} domain={[0, 'dataMax']} tickFormatter={(v: number) => v.toLocaleString()} />
-              <YAxis dataKey="zone" type="category" width={40} {...CHART.axis} />
-              <Tooltip {...CHART.tooltip} formatter={(v) => [`${Number(v).toLocaleString()} m`]} />
-              <Bar dataKey="dist" name="距離 (m)" fill="#3b82f6" radius={4} background={{ fill: '#f8fafc', radius: 4 }} />
+              <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
+              <YAxis {...CHART.axis} tickFormatter={(v: number) => v.toLocaleString()} />
+              <Tooltip {...CHART.tooltip} formatter={(v) => [Number(v).toLocaleString() + ' 回']} labelFormatter={l => formatPeriodLabel(l, period)} />
+              <Legend {...CHART.legend} />
+              <Bar dataKey="15–20km/h" stackId="a" fill={ZONE_COLORS[2]} />
+              <Bar dataKey="20–25km/h" stackId="a" fill={ZONE_COLORS[3]} />
+              <Bar dataKey="25+km/h"   stackId="a" fill={ZONE_COLORS[4]} radius={[3,3,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
       </div>
 
+      {/* ── Row 3: 加減速 ／ Explosive Effort ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* 加速=暖色 / 減速=寒色 */}
         <Card title="加減速">
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={filtered}>
@@ -590,23 +608,18 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
           </ResponsiveContainer>
         </Card>
 
-        <Card title="高速走行回数">
+        <Card title="Explosive Effort">
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={filtered.map(d => ({
-              date: d.date,
-              '15–20km/h': d.count_15_20,
-              '20–25km/h': d.count_20_25,
-              '25+km/h':   d.count_25plus,
-            }))} barSize={period === 'monthly' ? 36 : 8}>
+            <LineChart data={filtered}>
               <CartesianGrid {...CHART.grid} />
               <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
-              <YAxis {...CHART.axis} tickFormatter={(v: number) => v.toLocaleString()} />
+              <YAxis {...CHART.axis} {...AUTO_Y} tickFormatter={(v: number) => v.toLocaleString()} />
               <Tooltip {...CHART.tooltip} formatter={(v) => [Number(v).toLocaleString() + ' 回']} labelFormatter={l => formatPeriodLabel(l, period)} />
               <Legend {...CHART.legend} />
-              <Bar dataKey="15–20km/h" stackId="a" fill={ZONE_COLORS[2]} />
-              <Bar dataKey="20–25km/h" stackId="a" fill={ZONE_COLORS[3]} />
-              <Bar dataKey="25+km/h"   stackId="a" fill={ZONE_COLORS[4]} radius={[3,3,0,0]} />
-            </BarChart>
+              <Line type="monotone" dataKey="explosiveEfforts" name="Explosive Effort (回)"
+                stroke="#d97706" strokeWidth={2}
+                dot={{ r: 2, fill: '#d97706', strokeWidth: 0 }} activeDot={{ r: 5 }} />
+            </LineChart>
           </ResponsiveContainer>
         </Card>
       </div>

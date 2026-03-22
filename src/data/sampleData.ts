@@ -10,6 +10,9 @@ export interface GpsData {
   opponent?: string        // 試合の場合：対戦相手
   venue?: string           // 試合の場合：会場（H=ホーム / A=アウェイ）
   score?: string           // 試合の場合：スコア
+  weather?: string         // 試合の場合：天候
+  attendance?: number      // 試合の場合：入場者数
+  isStarter?: boolean      // 試合の場合：スタメンか否か
   totalDistance: number; distancePerMinute: number
   dist_0_7: number; dist_7_15: number; dist_15_20: number; dist_20_25: number; dist_25plus: number
   ratio_0_7: number; ratio_7_15: number; ratio_15_20: number; ratio_20_25: number
@@ -61,21 +64,39 @@ const MATCH_DATES = new Set([
 ])
 
 // 試合詳細：対戦相手 / 会場 / スコア
-const MATCH_DETAILS: Record<string, { opponent: string; venue: 'H' | 'A'; score: string }> = {
-  '2025-01-15': { opponent: 'FC東京',    venue: 'H', score: '2-1' },
-  '2025-01-29': { opponent: '横浜FC',    venue: 'A', score: '1-1' },
-  '2025-02-12': { opponent: '川崎F',     venue: 'H', score: '3-0' },
-  '2025-02-26': { opponent: '浦和R',     venue: 'A', score: '0-2' },
-  '2025-03-12': { opponent: 'G大阪',     venue: 'H', score: '1-0' },
-  '2025-03-26': { opponent: 'C大阪',     venue: 'A', score: '2-2' },
-  '2025-04-09': { opponent: '鹿島A',     venue: 'H', score: '1-3' },
-  '2025-04-23': { opponent: '名古屋G',   venue: 'A', score: '2-1' },
-  '2025-05-07': { opponent: 'サンフ広島', venue: 'H', score: '0-0' },
-  '2025-05-21': { opponent: 'ヴィッセル神戸', venue: 'A', score: '1-2' },
-  '2025-06-04': { opponent: '柏R',       venue: 'H', score: '3-1' },
-  '2025-06-18': { opponent: 'アビスパ福岡', venue: 'A', score: '1-1' },
-  '2025-07-02': { opponent: 'ベガルタ仙台', venue: 'H', score: '2-0' },
-  '2025-07-16': { opponent: 'アルビ新潟', venue: 'A', score: '1-1' },
+const MATCH_DETAILS: Record<string, { opponent: string; venue: 'H' | 'A'; score: string; weather: string; attendance: number }> = {
+  '2025-01-15': { opponent: 'FC東京',        venue: 'H', score: '2-1', weather: '晴',  attendance: 18520 },
+  '2025-01-29': { opponent: '横浜FC',        venue: 'A', score: '1-1', weather: '曇',  attendance: 12340 },
+  '2025-02-12': { opponent: '川崎F',         venue: 'H', score: '3-0', weather: '晴',  attendance: 21800 },
+  '2025-02-26': { opponent: '浦和R',         venue: 'A', score: '0-2', weather: '雨',  attendance: 31500 },
+  '2025-03-12': { opponent: 'G大阪',         venue: 'H', score: '1-0', weather: '晴',  attendance: 19200 },
+  '2025-03-26': { opponent: 'C大阪',         venue: 'A', score: '2-2', weather: '曇',  attendance: 23600 },
+  '2025-04-09': { opponent: '鹿島A',         venue: 'H', score: '1-3', weather: '晴',  attendance: 20100 },
+  '2025-04-23': { opponent: '名古屋G',       venue: 'A', score: '2-1', weather: '晴',  attendance: 17800 },
+  '2025-05-07': { opponent: 'サンフ広島',     venue: 'H', score: '0-0', weather: '曇',  attendance: 22300 },
+  '2025-05-21': { opponent: 'ヴィッセル神戸', venue: 'A', score: '1-2', weather: '晴',  attendance: 28900 },
+  '2025-06-04': { opponent: '柏R',           venue: 'H', score: '3-1', weather: '晴',  attendance: 19700 },
+  '2025-06-18': { opponent: 'アビスパ福岡',   venue: 'A', score: '1-1', weather: '雨',  attendance: 16400 },
+  '2025-07-02': { opponent: 'ベガルタ仙台',   venue: 'H', score: '2-0', weather: '晴',  attendance: 18100 },
+  '2025-07-16': { opponent: 'アルビ新潟',     venue: 'A', score: '1-1', weather: '曇',  attendance: 14200 },
+}
+
+// 試合出場選手：starters=スタメン11人, subs=ベンチ5人 (imgId)
+const MATCH_SQUADS: Record<string, { starters: number[]; subs: number[] }> = {
+  '2025-01-15': { starters: [1,4,5,7,8,13,14,16,17,23,24],   subs: [2,6,15,25,26] },
+  '2025-01-29': { starters: [1,4,5,6,7,13,14,15,16,23,25],   subs: [2,8,17,24,27] },
+  '2025-02-12': { starters: [1,5,6,7,8,14,15,16,18,24,25],   subs: [3,4,13,23,26] },
+  '2025-02-26': { starters: [1,4,6,7,9,13,15,17,18,23,24],   subs: [2,5,14,25,27] },
+  '2025-03-12': { starters: [1,5,7,8,9,14,16,17,18,25,26],   subs: [2,4,13,23,24] },
+  '2025-03-26': { starters: [1,4,5,6,7,13,14,16,18,23,25],   subs: [2,9,15,24,27] },
+  '2025-04-09': { starters: [1,5,6,8,9,14,15,17,18,24,26],   subs: [3,4,13,23,25] },
+  '2025-04-23': { starters: [1,4,7,8,9,13,16,17,18,23,25],   subs: [2,5,14,24,26] },
+  '2025-05-07': { starters: [1,5,6,7,8,14,15,16,17,24,25],   subs: [2,4,13,23,26] },
+  '2025-05-21': { starters: [1,4,5,7,9,13,14,17,18,23,26],   subs: [2,6,15,24,25] },
+  '2025-06-04': { starters: [1,5,7,8,9,15,16,17,18,25,26],   subs: [2,4,14,23,24] },
+  '2025-06-18': { starters: [1,4,6,7,8,13,14,15,16,24,25],   subs: [3,5,17,23,26] },
+  '2025-07-02': { starters: [1,5,6,7,9,14,16,17,18,23,25],   subs: [2,4,15,24,26] },
+  '2025-07-16': { starters: [1,4,5,7,8,13,14,16,17,24,26],   subs: [2,6,15,23,25] },
 }
 
 const GPS_DATES = [
@@ -136,7 +157,7 @@ const COND_BASE: Record<string, { h: number; w: number; fat: number; muscle: num
 const TRAIN_TIMES = ['09:30', '10:00', '10:30', '15:30', '16:00', '16:30']
 const MATCH_TIMES = ['13:00', '14:00', '15:00', '19:00']
 
-function makeGps(base: typeof GPS_BASE['FW'] & { dv?: number; sv?: number }, dates: string[]): GpsData[] {
+function makeGps(base: typeof GPS_BASE['FW'] & { dv?: number; sv?: number }, dates: string[], imgId?: number): GpsData[] {
   return dates.map((date, i) => {
     const prog = i / (dates.length - 1)
     const d    = base.dist + (base.dv ?? 0) + prog * 400 + rnd(600)
@@ -160,6 +181,8 @@ function makeGps(base: typeof GPS_BASE['FW'] & { dv?: number; sv?: number }, dat
         opponent: matchDetail.opponent,
         venue: matchDetail.venue,
         score: matchDetail.score,
+        weather: matchDetail.weather,
+        attendance: matchDetail.attendance,
       } : {}),
       totalDistance: isMatch ? Math.round(tot * 1.12) : tot,
       distancePerMinute: isMatch ? +((mpm * 1.08)).toFixed(1) : +mpm.toFixed(1),
@@ -178,6 +201,9 @@ function makeGps(base: typeof GPS_BASE['FW'] & { dv?: number; sv?: number }, dat
       decel_2ms3: Math.max(0, Math.round(base.decel * 0.45 + rnd(3))),
       explosiveEfforts: Math.max(1, Math.round(base.ee + prog * 1.5 + rnd(3))),
       running: +(75 + rnd(15)).toFixed(1),
+      ...(isMatch && imgId !== undefined ? {
+        isStarter: (MATCH_SQUADS[date]?.starters ?? []).includes(imgId),
+      } : {}),
     }
   })
 }
@@ -316,7 +342,16 @@ export const players: Player[] = DEFS.map(([name, pos, imgId, dv, sv, hv, wv, fv
     position: pos as string,
     photo: `https://i.pravatar.cc/150?img=${imgId}`,
     dob, age, heightCm,
-    gpsData: makeGps({ ...GPS_BASE[pos as string], dv: dv as number, sv: sv as number }, GPS_DATES),
+    gpsData: (() => {
+      const id = imgId as number
+      const allGps = makeGps({ ...GPS_BASE[pos as string], dv: dv as number, sv: sv as number }, GPS_DATES, id)
+      return allGps.filter(d => {
+        if (d.sessionType !== 'match') return true
+        const squad = MATCH_SQUADS[d.date]
+        if (!squad) return true
+        return [...squad.starters, ...squad.subs].includes(id)
+      })
+    })(),
     conditioningData: makeCond({ ...COND_BASE[pos as string], hv: hv as number, wv: wv as number, fv: fv as number }, COND_DATES),
   }
 })
