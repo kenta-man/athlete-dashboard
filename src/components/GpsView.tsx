@@ -4,9 +4,9 @@ import {
   Legend, ResponsiveContainer,
 } from 'recharts'
 import type { GpsData, Player } from '../data/sampleData'
-import { type Period, formatPeriodLabel } from '../utils/aggregation'
+import { type Period, formatPeriodLabel, aggregateGpsData, PERIOD_LABELS } from '../utils/aggregation'
 
-interface Props { data: GpsData[]; period: Period; player: Player }
+interface Props { rawData: GpsData[]; player: Player }
 
 const CHART = {
   grid: { stroke: '#f1f5f9', strokeDasharray: '3 3' },
@@ -642,8 +642,32 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
-export default function GpsView({ data, period }: Props) {
-  return period === 'session' ? <SessionSummary data={data} /> : <TrendView data={data} period={period} />
+export default function GpsView({ rawData }: Props) {
+  const [period, setPeriod] = useState<Period>('session')
+  const data = useMemo(() => aggregateGpsData(rawData, period), [rawData, period])
+
+  return (
+    <div className="space-y-4">
+      {/* ── 表示期間タブ ── */}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center rounded gap-0.5 p-0.5" style={{ backgroundColor: '#1a1a1a' }}>
+          {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
+            <button key={p} onClick={() => setPeriod(p)}
+              className="px-4 py-1.5 rounded text-xs font-bold transition-all"
+              style={period === p
+                ? { backgroundColor: '#2563eb', color: '#fff' }
+                : { color: '#888', background: 'transparent' }}>
+              {PERIOD_LABELS[p]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {period === 'session'
+        ? <SessionSummary data={data} />
+        : <TrendView data={data} period={period} />}
+    </div>
+  )
 }
 
 // ─── Compact KPI card ────────────────────────────────────────────────────────

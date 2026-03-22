@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { players, POSITION_COLORS } from './data/sampleData'
-import { aggregateGpsData, aggregateCondData, type Period, PERIOD_LABELS } from './utils/aggregation'
+import { aggregateCondData, type Period, PERIOD_LABELS } from './utils/aggregation'
 import GpsView from './components/GpsView'
 import ConditioningView from './components/ConditioningView'
 import ComparisonView from './components/ComparisonView'
@@ -22,7 +22,6 @@ export default function App() {
   const [compView, setCompView]   = useState<'session' | 'matrix'>('matrix')
 
   const player  = players.find(p => p.id === selectedPlayerId)!
-  const gpsData  = useMemo(() => aggregateGpsData(player.gpsData, period),  [player, period])
   const condData = useMemo(() => aggregateCondData(player.conditioningData, period), [player, period])
 
   const filteredPlayers = posFilter === 'ALL' ? players : players.filter(p => p.position === posFilter)
@@ -100,24 +99,25 @@ export default function App() {
             </>
           )}
 
-          <div className="w-px h-5" style={{ backgroundColor: '#444' }} />
-
-          {/* Period (individual mode only) */}
-          {viewMode === 'individual' && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium" style={{ color: '#888' }}>期間</span>
-            <div className="flex items-center rounded gap-0.5 p-0.5" style={{ backgroundColor: '#111' }}>
-              {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
-                <button key={p} onClick={() => setPeriod(p)}
-                  className="px-3 py-1 rounded text-xs font-bold transition-all"
-                  style={period === p
-                    ? { backgroundColor: '#2563eb', color: '#fff' }
-                    : { color: '#888', background: 'transparent' }}>
-                  {PERIOD_LABELS[p]}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Period (individual + conditioning only) */}
+          {viewMode === 'individual' && dataTab === 'conditioning' && (
+            <>
+              <div className="w-px h-5" style={{ backgroundColor: '#444' }} />
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium" style={{ color: '#888' }}>期間</span>
+                <div className="flex items-center rounded gap-0.5 p-0.5" style={{ backgroundColor: '#111' }}>
+                  {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
+                    <button key={p} onClick={() => setPeriod(p)}
+                      className="px-3 py-1 rounded text-xs font-bold transition-all"
+                      style={period === p
+                        ? { backgroundColor: '#2563eb', color: '#fff' }
+                        : { color: '#888', background: 'transparent' }}>
+                      {PERIOD_LABELS[p]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -212,7 +212,7 @@ export default function App() {
             </div>
 
             {dataTab === 'gps'
-              ? <GpsView data={gpsData} period={period} player={player} />
+              ? <GpsView rawData={player.gpsData} player={player} />
               : <ConditioningView data={condData} period={period} player={player} />}
           </>
         ) : (

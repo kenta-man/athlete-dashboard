@@ -456,7 +456,7 @@ function RecentTrendCharts({ data }: { data: ConditioningData[] }) {
 
 // ─── Trend View ──────────────────────────────────────────────────────────────
 function TrendView({ data, period, player }: { data: ConditioningData[]; period: Period; player: Player }) {
-  const [selectedMetric, setSelectedMetric] = useState<string | null>(null)
+  const [selectedMetrics, setSelectedMetrics] = useState<Set<string>>(new Set())
   const fmt = (k: string) => formatPeriodLabel(k, period)
   const latest = data[data.length - 1]
   const prev   = data.length > 1 ? data[data.length - 2] : undefined
@@ -574,7 +574,6 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
     ]},
   ]
   const flatMetrics = allMetricGroups.flatMap(g => g.metrics)
-  const selDef = flatMetrics.find(m => String(m.key) === selectedMetric)
 
   const miniChart = {
     grid: { stroke: '#f1f5f9', strokeDasharray: '3 3' },
@@ -672,8 +671,15 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
 
       {/* ── 全項目グラフ ── */}
       <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-        <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
+        <div className="px-4 py-2 flex items-center justify-between" style={{ backgroundColor: '#1a1a1a' }}>
           <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#ddd' }}>全項目グラフ</p>
+          {selectedMetrics.size > 0 && (
+            <button onClick={() => setSelectedMetrics(new Set())}
+              className="text-[10px] font-bold border transition-all"
+              style={{ color: '#f87171', borderColor: '#f87171', padding: '1px 8px', borderRadius: 3, background: 'transparent' }}>
+              全解除
+            </button>
+          )}
         </div>
         <div className="p-3 space-y-2.5">
           {allMetricGroups.map(group => (
@@ -683,46 +689,57 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
                 <span style={{ fontSize: 10, fontWeight: 600, color: '#6b7280' }}>{group.title}</span>
               </div>
               <div className="flex flex-wrap gap-1">
-                {group.metrics.map(m => (
-                  <button key={String(m.key)}
-                    onClick={() => setSelectedMetric(selectedMetric === String(m.key) ? null : String(m.key))}
-                    className="border transition-all"
-                    style={{
-                      fontSize: 10, fontWeight: 500, padding: '2px 8px', borderRadius: 3,
-                      ...(selectedMetric === String(m.key)
-                        ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
-                        : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent' }),
-                    }}>
-                    {m.label}
-                  </button>
-                ))}
+                {group.metrics.map(m => {
+                  const mk = String(m.key)
+                  const isSel = selectedMetrics.has(mk)
+                  return (
+                    <button key={mk}
+                      onClick={() => setSelectedMetrics(prev => {
+                        const n = new Set(prev); n.has(mk) ? n.delete(mk) : n.add(mk); return n
+                      })}
+                      className="border transition-all"
+                      style={{
+                        fontSize: 10, fontWeight: 500, padding: '2px 8px', borderRadius: 3,
+                        ...(isSel
+                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
+                          : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent' }),
+                      }}>
+                      {m.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           ))}
-          {selectedMetric && selDef && (
-            <div className="mt-2 border-t border-slate-100 pt-3">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: selDef.color }} />
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>
-                  {selDef.label}{selDef.unit ? ` (${selDef.unit})` : ''}
-                </span>
+          {/* 選択済み項目ごとに個別グラフを表示 */}
+          {[...selectedMetrics].map(mk => {
+            const def = flatMetrics.find(m => String(m.key) === mk)
+            if (!def) return null
+            return (
+              <div key={mk} className="border-t border-slate-100 pt-3 mt-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: def.color }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>
+                    {def.label}{def.unit ? ` (${def.unit})` : ''}
+                  </span>
+                </div>
+                <ResponsiveContainer width="100%" height={180}>
+                  <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                    <CartesianGrid {...CHART.grid} />
+                    <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
+                    <YAxis {...CHART.axis} {...AUTO_Y} tickCount={5}
+                      tickFormatter={(v: number) => v % 1 === 0 ? v.toLocaleString() : v.toFixed(1)} />
+                    <Tooltip {...CHART.tooltip} labelFormatter={l => formatPeriodLabel(l, period)}
+                      formatter={(v) => [`${Number(v)}${def.unit ? ` ${def.unit}` : ''}`]} />
+                    <Line type="monotone" dataKey={mk}
+                      name={`${def.label}${def.unit ? `(${def.unit})` : ''}`}
+                      stroke={def.color} strokeWidth={2}
+                      dot={{ r: 3, fill: def.color, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                  <CartesianGrid {...CHART.grid} />
-                  <XAxis dataKey="date" tickFormatter={fmt} {...CHART.axis} />
-                  <YAxis {...CHART.axis} {...AUTO_Y} tickCount={5}
-                    tickFormatter={(v: number) => v % 1 === 0 ? v.toLocaleString() : v.toFixed(1)} />
-                  <Tooltip {...CHART.tooltip} labelFormatter={l => formatPeriodLabel(l, period)}
-                    formatter={(v) => [`${Number(v)}${selDef.unit ? ` ${selDef.unit}` : ''}`]} />
-                  <Line type="monotone" dataKey={selectedMetric}
-                    name={`${selDef.label}${selDef.unit ? `(${selDef.unit})` : ''}`}
-                    stroke={selDef.color} strokeWidth={2}
-                    dot={{ r: 3, fill: selDef.color, strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+            )
+          })}
         </div>
       </div>
 
