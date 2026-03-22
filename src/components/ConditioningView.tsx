@@ -67,16 +67,17 @@ function SessionSummary({ data, player }: { data: ConditioningData[]; player: Pl
   const monthSessions = data.map((dd, i) => ({ ...dd, idx: i })).filter(dd => dd.date.startsWith(selectedMonth))
 
   const topKpis = [
-    { label: '体重',       curr: d.weight,             prev: p?.weight,             unit: 'kg',   accent: '#3b82f6' },
-    { label: '体脂肪率',   curr: d.bodyFatPct,         prev: p?.bodyFatPct,         unit: '%',    accent: '#ef4444' },
-    { label: '骨格筋量',   curr: d.skeletalMuscleMass, prev: p?.skeletalMuscleMass, unit: 'kg',   accent: '#10b981' },
-    { label: '筋肉量',     curr: d.muscleMass,         prev: p?.muscleMass,         unit: 'kg',   accent: '#059669' },
-    { label: '除脂肪量',   curr: d.leanBodyMass,       prev: p?.leanBodyMass,       unit: 'kg',   accent: '#0ea5e9' },
-    { label: '基礎代謝',   curr: d.bmr,                prev: p?.bmr,                unit: 'kcal', accent: '#8b5cf6' },
-    { label: '水和率',     curr: d.hydrationRate,      prev: p?.hydrationRate,      unit: '%',    accent: '#0284c7' },
-    { label: '全身位相角', curr: d.phaseAngleWhole,    prev: p?.phaseAngleWhole,    unit: '°',    accent: '#7c3aed' },
-    { label: '安静時心拍', curr: d.hrResting,          prev: p?.hrResting,          unit: 'bpm',  accent: '#f43f5e' },
-    { label: 'HRV',        curr: d.hrv,                prev: p?.hrv,                unit: 'ms',   accent: '#6366f1' },
+    { label: '体重',       curr: d.weight,             prev: p?.weight,             unit: 'kg',   accent: '#3b82f6', dec: 1 },
+    { label: '体脂肪率',   curr: d.bodyFatPct,         prev: p?.bodyFatPct,         unit: '%',    accent: '#ef4444', dec: 1 },
+    { label: '骨格筋量',   curr: d.skeletalMuscleMass, prev: p?.skeletalMuscleMass, unit: 'kg',   accent: '#10b981', dec: 1 },
+    { label: '筋肉量',     curr: d.muscleMass,         prev: p?.muscleMass,         unit: 'kg',   accent: '#059669', dec: 1 },
+    { label: '除脂肪量',   curr: d.leanBodyMass,       prev: p?.leanBodyMass,       unit: 'kg',   accent: '#0ea5e9', dec: 1 },
+    { label: '体水分量',   curr: d.bodyWater,          prev: p?.bodyWater,          unit: 'L',    accent: '#06b6d4', dec: 1 },
+    { label: '基礎代謝',   curr: d.bmr,                prev: p?.bmr,                unit: 'kcal', accent: '#8b5cf6', dec: 0 },
+    { label: '水和率',     curr: d.hydrationRate,      prev: p?.hydrationRate,      unit: '%',    accent: '#0284c7', dec: 1 },
+    { label: '全身位相角', curr: d.phaseAngleWhole,    prev: p?.phaseAngleWhole,    unit: '°',    accent: '#7c3aed', dec: 1 },
+    { label: '安静時心拍', curr: d.hrResting,          prev: p?.hrResting,          unit: 'bpm',  accent: '#f43f5e', dec: 0 },
+    { label: 'HRV',        curr: d.hrv,                prev: p?.hrv,                unit: 'ms',   accent: '#6366f1', dec: 1 },
   ]
 
   const sections = [
@@ -258,37 +259,52 @@ function SessionSummary({ data, player }: { data: ConditioningData[]; player: Pl
         </div>
       </div>
 
-      {/* Top KPI grid */}
+      {/* Top KPI — table layout for aligned columns */}
       <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
         <div className="px-4 py-2" style={{ backgroundColor: '#1a1a1a' }}>
           <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>主要指標</p>
         </div>
-        <div className="p-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
-            {topKpis.map(k => {
-              const diff = k.prev !== undefined ? +(k.curr - k.prev).toFixed(1) : null
-              const diffColor = diff === null || diff === 0 ? undefined : diff > 0 ? '#dc2626' : '#2563eb'
-              return (
-                <div key={k.label} className="rounded-lg p-2.5 border text-center" style={{ backgroundColor: '#f9fafb', borderColor: '#e5e7eb' }}>
-                  <div className="flex items-center justify-center gap-1 mb-1">
-                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.accent }} />
-                    <p className="text-xs font-semibold text-slate-600 leading-tight">{k.label}</p>
-                  </div>
-                  <p className="text-base font-bold leading-none" style={{ color: '#111827' }}>
-                    {k.curr}<span className="text-xs font-normal text-slate-400 ml-0.5">{k.unit}</span>
-                  </p>
-                  {diff !== null && diff !== 0 && (
-                    <p className="text-xs font-bold mt-0.5" style={{ color: diffColor }}>
-                      {diff > 0 ? `▲+${diff}` : `▼${diff}`}
-                    </p>
-                  )}
-                  {(diff === null || diff === 0) && (
-                    <p className="text-xs text-slate-300 mt-0.5">—</p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+        <div className="overflow-x-auto p-3" style={{ scrollbarWidth: 'none' }}>
+          <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: '100%', minWidth: topKpis.length * 72 }}>
+            <thead>
+              <tr>
+                {topKpis.map(k => (
+                  <th key={k.label} style={{ width: 72, padding: '0 4px 6px', textAlign: 'center', fontWeight: 'normal' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: k.accent, flexShrink: 0 }} />
+                      <span style={{ fontSize: 10, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>{k.label}</span>
+                    </div>
+                    <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 1 }}>{k.unit}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {/* Value row */}
+              <tr style={{ borderTop: '1px solid #f1f5f9' }}>
+                {topKpis.map(k => (
+                  <td key={k.label} style={{ padding: '5px 4px 2px', textAlign: 'center' }}>
+                    <span className="tabular-nums" style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>
+                      {k.dec === 0 ? Math.round(k.curr).toLocaleString() : k.curr}
+                    </span>
+                  </td>
+                ))}
+              </tr>
+              {/* Delta row */}
+              <tr>
+                {topKpis.map(k => {
+                  const diff = k.prev !== undefined ? +(k.curr - k.prev).toFixed(k.dec) : null
+                  const diffColor = diff === null ? '#d1d5db' : diff > 0 ? '#dc2626' : diff < 0 ? '#2563eb' : '#9ca3af'
+                  const diffText = diff === null ? '—' : diff > 0 ? `▲+${diff}` : diff < 0 ? `▼${diff}` : '±0'
+                  return (
+                    <td key={k.label} style={{ padding: '0 4px 5px', textAlign: 'center' }}>
+                      <span className="tabular-nums" style={{ fontSize: 10, fontWeight: 700, color: diffColor }}>{diffText}</span>
+                    </td>
+                  )
+                })}
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
