@@ -20,13 +20,14 @@ const CHART = {
 }
 
 const GPS_METRICS = [
-  { key: 'totalDistance',    label: '総走行距離',          unit: 'm',     accent: '#3b82f6' },
-  { key: 'hsr',              label: 'HSR（20km/h+）',       unit: 'm',     accent: '#ef4444' },
-  { key: 'intensity',        label: '1分あたり走行距離',   unit: 'm/min', accent: '#0284c7' },
-  { key: 'maxSpeed',         label: '最高速度',             unit: 'km/h',  accent: '#059669' },
-  { key: 'explosiveEfforts', label: 'Explosive Effort',     unit: '回',    accent: '#d97706' },
-  { key: 'accel_3ms2',       label: '加速',                 unit: '回',    accent: '#f97316' },
-  { key: 'decel_3ms2',       label: '減速',                 unit: '回',    accent: '#be185d' },
+  { key: 'totalDistance',    label: '総走行距離',        unit: 'm',     accent: '#3b82f6' },
+  { key: 'intensity',        label: '1分あたり走行距離', unit: 'm/min', accent: '#0284c7' },
+  { key: 'hsr',              label: 'HSR（20km/h+）',    unit: 'm',     accent: '#ef4444' },
+  { key: 'hsrRatio',         label: 'HSR割合',           unit: '%',     accent: '#fb923c' },
+  { key: 'maxSpeed',         label: '最高速度',           unit: 'km/h',  accent: '#059669' },
+  { key: 'explosiveEfforts', label: 'Explosive Effort',   unit: '回',    accent: '#d97706' },
+  { key: 'accel_3ms2',       label: '加速',               unit: '回',    accent: '#f97316' },
+  { key: 'decel_3ms2',       label: '減速',               unit: '回',    accent: '#be185d' },
 ]
 
 const ZONE_COLS = [
@@ -151,8 +152,9 @@ function getVal(obj: Record<string, unknown>, key: string): number {
 
 const TABLE_HEADER: Record<string, [string, string]> = {
   totalDistance:    ['総走行', '距離'],
-  hsr:              ['HSR', '20km/h+'],
   intensity:        ['1分/走行', '距離'],
+  hsr:              ['HSR', '20km/h+'],
+  hsrRatio:         ['HSR', '割合'],
   maxSpeed:         ['最高', '速度'],
   explosiveEfforts: ['Explosive', 'Effort'],
   accel_3ms2:       ['加速', ''],
@@ -345,11 +347,15 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
   const gpsAgg = useMemo(() => {
     const compute = (p: Period) => players.map(pl => ({
       ...pl,
-      agg: aggregateGpsData(pl.gpsData, p).map((d: any) => ({
-        ...d,
-        hsr: (d.dist_20_25 ?? 0) + (d.dist_25plus ?? 0),
-        intensity: d.running > 0 ? Math.round(d.totalDistance / d.running) : 0,
-      }))
+      agg: aggregateGpsData(pl.gpsData, p).map((d: any) => {
+        const hsr = (d.dist_20_25 ?? 0) + (d.dist_25plus ?? 0)
+        return {
+          ...d,
+          hsr,
+          intensity: d.running > 0 ? Math.round(d.totalDistance / d.running) : 0,
+          hsrRatio: d.totalDistance > 0 ? +((hsr / d.totalDistance) * 100).toFixed(1) : 0,
+        }
+      })
     }))
     return {
       session: compute('session'),

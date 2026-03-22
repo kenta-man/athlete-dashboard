@@ -24,14 +24,16 @@ const AUTO_Y = { domain: ['auto' as const, 'auto' as const] }
 const ZONE_COLORS = ['#3b82f6','#10b981','#f59e0b','#f97316','#ef4444']
 
 interface KpiStats {
-  totalDistance: number; hsr: number; intensity: number
+  totalDistance: number; hsr: number; hsrRatio: number; intensity: number
   maxSpeed: number; ee: number; running: number; accel: number; decel: number
 }
 
 function toKpiStats(s: GpsData): KpiStats {
+  const hsr = s.dist_20_25 + s.dist_25plus
   return {
     totalDistance: s.totalDistance,
-    hsr: s.dist_20_25 + s.dist_25plus,
+    hsr,
+    hsrRatio: s.totalDistance > 0 ? +((hsr / s.totalDistance) * 100).toFixed(1) : 0,
     intensity: s.running > 0 ? Math.round(s.totalDistance / s.running) : 0,
     maxSpeed: s.maxSpeed,
     ee: s.explosiveEfforts,
@@ -43,10 +45,11 @@ function toKpiStats(s: GpsData): KpiStats {
 
 function avgKpiStats(data: GpsData[]): KpiStats {
   const n = data.length
-  if (n === 0) return { totalDistance: 0, hsr: 0, intensity: 0, maxSpeed: 0, ee: 0, running: 0, accel: 0, decel: 0 }
+  if (n === 0) return { totalDistance: 0, hsr: 0, hsrRatio: 0, intensity: 0, maxSpeed: 0, ee: 0, running: 0, accel: 0, decel: 0 }
   return {
     totalDistance: Math.round(data.reduce((s, d) => s + d.totalDistance, 0) / n),
     hsr: Math.round(data.reduce((s, d) => s + d.dist_20_25 + d.dist_25plus, 0) / n),
+    hsrRatio: +(data.reduce((s, d) => s + (d.totalDistance > 0 ? (d.dist_20_25 + d.dist_25plus) / d.totalDistance * 100 : 0), 0) / n).toFixed(1),
     intensity: Math.round(data.reduce((s, d) => s + (d.running > 0 ? d.totalDistance / d.running : 0), 0) / n),
     maxSpeed: +(data.reduce((s, d) => s + d.maxSpeed, 0) / n).toFixed(1),
     ee: +(data.reduce((s, d) => s + d.explosiveEfforts, 0) / n).toFixed(1),
@@ -59,14 +62,14 @@ function avgKpiStats(data: GpsData[]): KpiStats {
 // ─── KPI Row ─────────────────────────────────────────────────────────────────
 function KpiRow({ stats, label, period }: { stats: KpiStats; label?: string; period?: Period }) {
   const items = [
-    { label: '総走行距離',             value: stats.totalDistance.toLocaleString(), unit: 'm',     accent: '#2563eb' },
-    { label: 'HSR（20km/h+）',         value: stats.hsr.toLocaleString(),           unit: 'm',     accent: '#ef4444' },
-    { label: '１分あたりの走行距離',   value: String(stats.intensity),              unit: 'm/min', accent: '#0284c7' },
-    { label: '最高速度',               value: `${stats.maxSpeed}`,                  unit: 'km/h',  accent: '#059669' },
-    { label: 'Explosive Effort',        value: `${stats.ee}`,                        unit: '回',    accent: '#d97706' },
-    { label: '時間',                   value: `${stats.running}`,                   unit: 'min',   accent: '#7c3aed' },
-    { label: '3m/s² 加速',            value: `${stats.accel}`,                     unit: '回',    accent: '#c2410c' },
-    { label: '3m/s² 減速',            value: `${stats.decel}`,                     unit: '回',    accent: '#be185d' },
+    { label: '総走行距離',           value: stats.totalDistance.toLocaleString(), unit: 'm',     accent: '#2563eb' },
+    { label: '１分あたり走行距離',   value: String(stats.intensity),              unit: 'm/min', accent: '#0284c7' },
+    { label: 'HSR（20km/h+）',       value: stats.hsr.toLocaleString(),           unit: 'm',     accent: '#ef4444' },
+    { label: 'HSR割合',              value: `${stats.hsrRatio}`,                  unit: '%',     accent: '#fb923c' },
+    { label: '最高速度',             value: `${stats.maxSpeed}`,                  unit: 'km/h',  accent: '#059669' },
+    { label: 'Explosive Effort',      value: `${stats.ee}`,                        unit: '回',    accent: '#d97706' },
+    { label: '3m/s² 加速',          value: `${stats.accel}`,                     unit: '回',    accent: '#c2410c' },
+    { label: '3m/s² 減速',          value: `${stats.decel}`,                     unit: '回',    accent: '#be185d' },
   ]
   const badgeText = period === 'weekly' ? '週セッション平均' : period === 'monthly' ? '月セッション平均' : '表示期間の平均'
   return (
