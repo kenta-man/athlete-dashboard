@@ -363,16 +363,28 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
           {[
             { title: '総走行距離 ランキング', ranking: totalDistRanking, unit: 'm', accent: '#3b82f6' },
             { title: 'HSR（20km/h+）ランキング', ranking: hsrRanking, unit: 'm', accent: '#ef4444' },
-          ].map(({ title, ranking, unit, accent }) => {
-            const teamAvg = ranking.reduce((s: number, p: any) => s + p.value, 0) / ranking.length
+          ].map(({ title, ranking, unit }) => {
             const maxVal = ranking[0]?.value ?? 1
-            const avgPct = (teamAvg / maxVal) * 100
+            const gkPlayers = ranking.filter((p: any) => p.pos === 'GK')
+            const fpPlayers = ranking.filter((p: any) => p.pos !== 'GK')
+            const gkAvg = gkPlayers.length ? gkPlayers.reduce((s: number, p: any) => s + p.value, 0) / gkPlayers.length : 0
+            const fpAvg = fpPlayers.length ? fpPlayers.reduce((s: number, p: any) => s + p.value, 0) / fpPlayers.length : 0
+            const gkAvgPct = (gkAvg / maxVal) * 100
+            const fpAvgPct = (fpAvg / maxVal) * 100
             return (
               <div key={title} className="bg-white rounded-xl p-5 border border-slate-200">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-2">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</h3>
-                  <span className="text-[10px] text-slate-500">
-                    平均 <span className="font-bold text-slate-800">{Math.round(teamAvg).toLocaleString()}</span> {unit}
+                </div>
+                {/* Average legend */}
+                <div className="flex gap-3 mb-3 text-[10px]">
+                  <span className="flex items-center gap-1 text-slate-500">
+                    <span className="inline-block w-4 h-px border-t-2 border-dashed" style={{ borderColor: '#6366f1' }} />
+                    FP平均 <span className="font-bold text-slate-800">{Math.round(fpAvg).toLocaleString()}</span> {unit}
+                  </span>
+                  <span className="flex items-center gap-1 text-slate-500">
+                    <span className="inline-block w-4 h-px border-t-2 border-dashed" style={{ borderColor: '#f59e0b' }} />
+                    GK平均 <span className="font-bold text-slate-800">{Math.round(gkAvg).toLocaleString()}</span> {unit}
                   </span>
                 </div>
                 <div className="space-y-1 max-h-80 overflow-y-auto pr-1" style={{ scrollbarWidth: 'none' }}>
@@ -391,8 +403,12 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                         <div className="flex-1 h-4 rounded-sm overflow-hidden bg-slate-100 relative">
                           <div className="h-full rounded-sm"
                             style={{ width: `${pct}%`, backgroundColor: color + '30', borderRight: `1.5px solid ${color}` }} />
+                          {/* FP average line */}
                           <div className="absolute top-0 bottom-0 w-px"
-                            style={{ left: `${avgPct}%`, backgroundColor: accent, opacity: 0.5 }} />
+                            style={{ left: `${fpAvgPct}%`, backgroundColor: '#6366f1', opacity: 0.7 }} />
+                          {/* GK average line */}
+                          <div className="absolute top-0 bottom-0 w-px"
+                            style={{ left: `${gkAvgPct}%`, backgroundColor: '#f59e0b', opacity: 0.7 }} />
                         </div>
                         <span className="text-xs w-16 text-right flex-shrink-0 font-bold text-slate-800">
                           {d.value.toLocaleString()}
@@ -497,22 +513,27 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
           </h3>
           <p className="text-[10px] text-slate-400 mb-4">ポジション平均以上のセルを強調表示</p>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs border-collapse">
+            <table className="text-xs border-collapse" style={{ tableLayout: 'fixed', width: '100%', minWidth: 900 }}>
+              <colgroup>
+                <col style={{ width: 140 }} />
+                <col style={{ width: 44 }} />
+                {GPS_METRICS.map(m => <col key={m.key} style={{ width: 72 }} />)}
+                {ZONE_COLS.map(z => <col key={z.key} style={{ width: 72 }} />)}
+              </colgroup>
               <thead>
                 <tr className="border-b-2 border-slate-100">
-                  <th className="text-left py-2 pr-3 text-slate-500 font-medium sticky left-0 bg-white">選手</th>
-                  <th className="text-center py-2 px-2 text-slate-500 font-medium">POS</th>
+                  <th className="text-left py-2 pr-3 text-slate-700 font-semibold sticky left-0 bg-white">選手</th>
+                  <th className="text-center py-2 px-1 text-slate-700 font-semibold">POS</th>
                   {GPS_METRICS.map(m => (
-                    <th key={m.key} className="text-right py-2 px-2 text-slate-500 font-medium whitespace-nowrap">
-                      <div>{m.label}</div>
-                      <div className="text-slate-400 font-normal text-[10px]">{m.unit}</div>
+                    <th key={m.key} className="text-right py-2 px-1 text-slate-700 font-semibold leading-tight">
+                      <div className="break-words hyphens-auto">{m.label}</div>
+                      <div className="text-slate-400 font-normal text-[10px] mt-0.5">{m.unit}</div>
                     </th>
                   ))}
                   {ZONE_COLS.map(z => (
-                    <th key={z.key} className="text-right py-2 px-2 font-medium whitespace-nowrap"
-                      style={{ color: z.color }}>
-                      <div>{z.label}</div>
-                      <div className="font-normal text-[10px] text-slate-400">m</div>
+                    <th key={z.key} className="text-right py-2 px-1 text-slate-700 font-semibold leading-tight">
+                      <div className="break-words">{z.label}</div>
+                      <div className="font-normal text-[10px] text-slate-400 mt-0.5">m</div>
                     </th>
                   ))}
                 </tr>
@@ -528,14 +549,14 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                   const groupAvgs = posMetricAvgs[posGroup] ?? {}
                   return (
                     <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                      <td className="py-1.5 pr-3 sticky left-0 bg-white">
+                      <td className="py-1.5 pr-2 sticky left-0 bg-white">
                         <div className="flex items-center gap-1.5">
                           <img src={p.photo} alt={p.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
                             onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                          <span className="font-medium text-slate-800 whitespace-nowrap">{p.name}</span>
+                          <span className="font-medium text-slate-800 truncate">{p.name}</span>
                         </div>
                       </td>
-                      <td className="text-center py-1.5 px-2">
+                      <td className="text-center py-1.5 px-1">
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">
                           {p.position}
                         </span>
@@ -545,10 +566,10 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                         const avg = groupAvgs[m.key] ?? 0
                         const aboveAvg = avg > 0 && val > avg
                         return (
-                          <td key={m.key} className="text-right py-1.5 px-2 font-semibold tabular-nums"
+                          <td key={m.key} className="text-right py-1.5 px-1 font-semibold tabular-nums"
                             style={aboveAvg
                               ? { color: m.accent, background: m.accent + '10' }
-                              : { color: '#374151' }}>
+                              : { color: '#1e293b' }}>
                             {val.toLocaleString()}
                           </td>
                         )
@@ -556,7 +577,7 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                       {ZONE_COLS.map(z => {
                         const val = last ? (getVal(last, z.key) || 0) : 0
                         return (
-                          <td key={z.key} className="text-right py-1.5 px-2 tabular-nums text-slate-600">
+                          <td key={z.key} className="text-right py-1.5 px-1 tabular-nums text-slate-700">
                             {val.toLocaleString()}
                           </td>
                         )
