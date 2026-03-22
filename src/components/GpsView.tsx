@@ -111,108 +111,109 @@ function SessionSummary({ data }: { data: GpsData[] }) {
 
   return (
     <div className="space-y-4">
-      {/* Session Info (left, narrow) + Session selector (right) */}
-      <div className="grid gap-3" style={{ gridTemplateColumns: '170px 1fr' }}>
+      {/* Session Info (left) + Session selector (right) */}
+      <div className="grid gap-3" style={{ gridTemplateColumns: '300px 1fr' }}>
 
-        {/* Session Info - left, narrow */}
+        {/* Session Info */}
         <div className="bg-white border border-slate-200 overflow-hidden flex flex-col" style={{ borderRadius: 0 }}>
           <div className="px-3 py-2" style={{ backgroundColor: '#1a1a1a' }}>
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>セッション情報</p>
           </div>
           <div className="p-3 flex flex-col gap-2 flex-1">
-          <div>
-            <p className="text-[10px] text-slate-400">日時</p>
-            <p className="text-xs font-bold text-slate-800">{s.date}（{dow}）</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-slate-400">開始時間</p>
-            <p className="text-xs font-bold text-slate-800">{s.startTime ?? '—'}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-slate-400 mb-0.5">種別</p>
-            {isMatch
-              ? <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#2563eb', borderRadius: 2 }}>⚽ 試合</span>
-              : <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#1a1a1a', borderRadius: 2 }}>🏃 練習</span>
-            }
-          </div>
-          {isMatch && s.opponent && (
-            <>
-              <div>
-                <p className="text-[10px] text-slate-400">対戦相手</p>
-                <p className="text-xs font-bold text-slate-800">
-                  {s.venue === 'H' ? '🏠' : '✈️'} {s.opponent}
-                  <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5"
-                    style={s.venue === 'H' ? { color: '#fff', background: '#1e6fad', borderRadius: 2 } : { color: '#fff', background: '#5b21b6', borderRadius: 2 }}>
-                    {s.venue === 'H' ? 'HOME' : 'AWAY'}
-                  </span>
-                </p>
-              </div>
-              {s.score && (
+            <div>
+              <p className="text-[10px] text-slate-400">日時</p>
+              <p className="text-xs font-bold text-slate-800">{s.date}（{dow}）</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 mb-0.5">種別</p>
+              {isMatch
+                ? <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#2563eb', borderRadius: 2 }}>⚽ 試合</span>
+                : <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#1a1a1a', borderRadius: 2 }}>🏃 練習</span>
+              }
+            </div>
+            {isMatch && s.opponent && (
+              <>
                 <div>
-                  <p className="text-[10px] text-slate-400">スコア</p>
-                  <p className="text-xs font-bold text-slate-800">{s.score}</p>
+                  <p className="text-[10px] text-slate-400">対戦相手</p>
+                  <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                    <span className="text-xs font-bold text-slate-800">
+                      {s.venue === 'H' ? '🏠' : '✈️'} {s.opponent}
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5"
+                      style={s.venue === 'H' ? { color: '#fff', background: '#1e6fad', borderRadius: 2 } : { color: '#fff', background: '#5b21b6', borderRadius: 2 }}>
+                      {s.venue === 'H' ? 'HOME' : 'AWAY'}
+                    </span>
+                    {s.score && <span className="text-sm font-bold text-slate-800">{s.score}</span>}
+                  </div>
                 </div>
-              )}
-            </>
-          )}
+                {s.weather && (
+                  <div className="pt-1 border-t border-slate-100 mt-1">
+                    <p className="text-[10px] text-slate-400">天候 / 気温 / 湿度</p>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5">
+                      {s.weather === '晴' ? '☀️ 晴' : s.weather === '曇' ? '☁️ 曇' : '🌧 雨'}
+                      {s.temperature != null && <span className="ml-1.5 text-slate-700">{s.temperature}°C</span>}
+                      {s.humidity != null && <span className="ml-1.5 text-slate-500">{s.humidity}%</span>}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 
-        {/* Session Selector - right */}
+        {/* Session Selector */}
         <div className="bg-white border border-slate-200 overflow-hidden flex flex-col" style={{ borderRadius: 0 }}>
           <div className="px-3 py-2" style={{ backgroundColor: '#1a1a1a' }}>
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>セッション選択</p>
           </div>
           <div className="p-3 flex flex-col flex-1">
-          {/* Month tabs */}
-          <div className="flex gap-1 flex-wrap mb-2">
-            {months.map(m => {
-              const monthNum = parseInt(m.slice(5))
-              const isSel = selectedMonths.has(m)
-              const hasCurrentSession = data[idx].date.startsWith(m)
-              return (
-                <button key={m} onClick={() => setSelectedMonths(prev => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n })}
-                  className="px-4 py-1.5 text-sm font-bold border transition-all"
-                  style={isSel
-                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
-                    : hasCurrentSession
-                      ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd', borderRadius: 3 }
-                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
-                  {monthNum}月
-                </button>
-              )
-            })}
-          </div>
-          {/* Date pills grid */}
-          <div className="grid grid-cols-7 gap-1 overflow-y-auto flex-1" style={{ maxHeight: 110, scrollbarWidth: 'none' }}>
-            {monthSessions.map(d => {
-              const match    = d.sessionType === 'match'
-              const selected = idx === d.idx
-              return (
-                <button key={d.date} onClick={() => setIdx(d.idx)}
-                  className="flex items-center justify-center gap-0.5 py-0.5 text-[9px] font-medium border transition-all"
-                  style={selected
-                    ? match
-                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
-                      : { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
-                    : match
-                      ? { color: '#2563eb', borderColor: '#fecaca', background: '#fff5f5', borderRadius: 3 }
-                      : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
-                  {match && <span style={{ fontSize: 9 }}>⚽</span>}
-                  {d.date.slice(8)}
-                </button>
-              )
-            })}
-          </div>
-          {/* Legend */}
-          <div className="flex items-center gap-3 mt-2">
-            <span className="flex items-center gap-1 text-[10px] text-slate-400">
-              <span className="inline-block w-2 h-2 rounded-sm bg-red-100 border border-red-300" />練習
-            </span>
-            <span className="flex items-center gap-1 text-[10px] text-red-400">
-              <span style={{ fontSize: 9 }}>⚽</span>試合
-            </span>
-          </div>
+            {/* Month tabs */}
+            <div className="flex gap-1.5 flex-wrap mb-2">
+              {months.map(m => {
+                const monthNum = parseInt(m.slice(5))
+                const isSel = selectedMonths.has(m)
+                const hasCurrentSession = data[idx].date.startsWith(m)
+                return (
+                  <button key={m} onClick={() => setSelectedMonths(prev => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n })}
+                    className="px-5 py-2 text-base font-bold border transition-all"
+                    style={isSel
+                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
+                      : hasCurrentSession
+                        ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd', borderRadius: 4 }
+                        : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
+                    {monthNum}月
+                  </button>
+                )
+              })}
+            </div>
+            {/* Date pills grid */}
+            <div className="grid grid-cols-7 gap-1 overflow-y-auto flex-1" style={{ maxHeight: 120, scrollbarWidth: 'none' }}>
+              {monthSessions.map(d => {
+                const match    = d.sessionType === 'match'
+                const selected = idx === d.idx
+                return (
+                  <button key={d.date} onClick={() => setIdx(d.idx)}
+                    className="flex items-center justify-center gap-0.5 py-1 text-xs font-semibold border transition-all leading-none"
+                    style={selected
+                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
+                      : match
+                        ? { color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5', borderRadius: 4 }
+                        : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
+                    {match && <span style={{ fontSize: 10 }}>⚽</span>}
+                    {d.date.slice(8)}
+                  </button>
+                )
+              })}
+            </div>
+            {/* Legend */}
+            <div className="flex items-center gap-3 mt-2">
+              <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                <span className="inline-block w-2 h-2 rounded-sm bg-white border border-slate-200" />練習
+              </span>
+              <span className="flex items-center gap-1 text-[10px] text-red-400">
+                <span style={{ fontSize: 10 }}>⚽</span>試合
+              </span>
+            </div>
           </div>
         </div>
       </div>
