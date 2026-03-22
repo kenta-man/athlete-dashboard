@@ -19,6 +19,7 @@ export default function App() {
   const [dataTab, setDataTab]     = useState<DataTab>('gps')
   const [period, setPeriod]       = useState<Period>('session')
   const [posFilter, setPosFilter] = useState<string>('ALL')
+  const [compView, setCompView]   = useState<'session' | 'matrix'>('matrix')
 
   const player  = players.find(p => p.id === selectedPlayerId)!
   const gpsData  = useMemo(() => aggregateGpsData(player.gpsData, period),  [player, period])
@@ -77,6 +78,27 @@ export default function App() {
               </button>
             ))}
           </div>
+
+          {/* Session / Matrix toggle (team comparison + GPS only) */}
+          {viewMode === 'comparison' && dataTab === 'gps' && (
+            <>
+              <div className="w-px h-5" style={{ backgroundColor: '#444' }} />
+              <div className="flex items-center gap-0" style={{ border: `1px solid #555`, borderRadius: 4, overflow: 'hidden' }}>
+                {([
+                  { key: 'session' as const, label: 'セッション' },
+                  { key: 'matrix'  as const, label: '比較マトリクス' },
+                ]).map(v => (
+                  <button key={v.key} onClick={() => setCompView(v.key)}
+                    className="px-3 py-1.5 text-xs font-bold transition-all"
+                    style={compView === v.key
+                      ? { backgroundColor: '#2563eb', color: '#fff' }
+                      : { backgroundColor: 'transparent', color: '#aaa' }}>
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           <div className="w-px h-5" style={{ backgroundColor: '#444' }} />
 
@@ -194,7 +216,7 @@ export default function App() {
               : <ConditioningView data={condData} period={period} player={player} />}
           </>
         ) : (
-          <ComparisonView players={players} dataTab={dataTab} />
+          <ComparisonView players={players} dataTab={dataTab} compView={compView} />
         )}
       </main>
     </div>

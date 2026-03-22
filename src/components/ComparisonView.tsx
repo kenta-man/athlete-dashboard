@@ -6,7 +6,7 @@ import {
 import { POSITION_COLORS, type Player } from '../data/sampleData'
 import { aggregateGpsData, aggregateCondData, type Period, formatPeriodLabel } from '../utils/aggregation'
 
-interface Props { players: Player[]; dataTab: 'gps' | 'conditioning' }
+interface Props { players: Player[]; dataTab: 'gps' | 'conditioning'; compView?: 'session' | 'matrix' }
 
 const CHART = {
   grid: { stroke: '#f1f5f9', strokeDasharray: '3 3' },
@@ -197,11 +197,8 @@ function SessionDaySummary({ aggPlayers, selectedDate }: { aggPlayers: any[]; se
 /* ══════════════════════════════════════════
    Main component
 ══════════════════════════════════════════ */
-export default function ComparisonView({ players, dataTab }: Props) {
+export default function ComparisonView({ players, dataTab, compView = 'matrix' }: Props) {
   const isGps = dataTab === 'gps'
-
-  /* ── GPS internal view tab ── */
-  const [compView, setCompView] = useState<'session' | 'matrix'>('matrix')
 
   /* ── GPS session state ── */
   const [selectedSessionDate, setSelectedSessionDate] = useState('')
@@ -549,22 +546,6 @@ export default function ComparisonView({ players, dataTab }: Props) {
   return (
     <div className="space-y-4">
 
-      {/* ── View tab: セッション | 比較マトリクス ── */}
-      <div className="flex items-center gap-0" style={{ border: '1px solid #3a3a3a', borderRadius: 4, overflow: 'hidden', display: 'inline-flex' }}>
-        {([
-          { key: 'session' as const, label: 'セッション' },
-          { key: 'matrix'  as const, label: '比較マトリクス' },
-        ]).map(v => (
-          <button key={v.key} onClick={() => setCompView(v.key)}
-            className="px-4 py-1.5 text-xs font-bold transition-all"
-            style={compView === v.key
-              ? { backgroundColor: '#2563eb', color: '#fff' }
-              : { backgroundColor: '#1a1a1a', color: '#aaa' }}>
-            {v.label}
-          </button>
-        ))}
-      </div>
-
       {/* ════════ SESSION VIEW ════════ */}
       {compView === 'session' && (
         <>
@@ -724,10 +705,10 @@ export default function ComparisonView({ players, dataTab }: Props) {
               <span className="text-[10px] text-slate-400 self-center mr-1">ZONE別</span>
               {ZONE_COLS.map(z => (
                 <button key={z.key} onClick={() => setMatrixMetricKey(z.key)}
-                  className="px-2.5 py-1 text-xs font-medium border transition-all"
+                  className="px-3 py-1.5 text-xs font-medium border transition-all"
                   style={matrixMetricKey === z.key
-                    ? { color: '#fff', background: z.color, borderColor: z.color, borderRadius: 4 }
-                    : { color: z.color, borderColor: z.color + '60', background: z.color + '08', borderRadius: 4 }}>
+                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
+                    : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
                   {z.label}
                 </button>
               ))}
@@ -830,97 +811,70 @@ export default function ComparisonView({ players, dataTab }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* GK group header */}
-                  <tr>
-                    <td colSpan={2 + filteredMatrixKeys.length} className="py-1 px-3 text-[10px] font-bold uppercase tracking-wider"
-                      style={{ backgroundColor: '#f59e0b15', color: '#f59e0b' }}>GK</td>
-                  </tr>
-                  {matrixPlayerRows.filter(p => POS_GROUPS.GK.includes(p.position)).map(pl => {
-                    const aggP = gpsAgg[matrixPeriod].find((a: any) => a.id === pl.id)
+                  {(['GK', 'FP'] as DisplayPos[]).map(pos => {
+                    const groupColor = pos === 'GK' ? '#f59e0b' : '#6366f1'
+                    const groupLabel = pos === 'GK' ? 'GK' : 'FP（DF / MF / FW）'
+                    const groupBg    = pos === 'GK' ? '#f59e0b15' : '#6366f115'
+                    const posPlayers = matrixPlayerRows.filter(p => POS_GROUPS[pos].includes(p.position))
                     return (
-                      <tr key={pl.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                        <td className="py-1.5 px-3 sticky left-0 bg-white z-10" style={{ whiteSpace: 'nowrap' }}>
-                          <div className="flex items-center gap-1.5">
-                            <img src={pl.photo} alt={pl.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
-                              onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                            <span className="font-medium text-slate-800">{pl.name}</span>
-                          </div>
-                        </td>
-                        <td className="text-center py-1.5 px-2" style={{ whiteSpace: 'nowrap' }}>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">{pl.position}</span>
-                        </td>
-                        {filteredMatrixKeys.map(k => {
-                          const d = aggP?.agg.find((a: any) => a.date === k) as any
-                          const val = d ? getVal(d, matrixMetricKey) : null
-                          const colAvg = matrixColGroupAvgs[k]?.GK ?? 0
-                          const above = val !== null && colAvg > 0 && val > colAvg
-                          return (
-                            <td key={k} className="text-right py-1.5 px-2 tabular-nums font-semibold"
-                              style={val === null ? { color: '#cbd5e1' } : above
-                                ? { color: matrixMetric.accent, background: matrixMetric.accent + '12' }
-                                : { color: '#1e293b' }}>
-                              {val !== null ? val.toLocaleString() : '—'}
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    )
-                  })}
-                  {/* FP group header */}
-                  <tr>
-                    <td colSpan={2 + filteredMatrixKeys.length} className="py-1 px-3 text-[10px] font-bold uppercase tracking-wider"
-                      style={{ backgroundColor: '#6366f115', color: '#6366f1' }}>FP（DF / MF / FW）</td>
-                  </tr>
-                  {matrixPlayerRows.filter(p => POS_GROUPS.FP.includes(p.position)).map(pl => {
-                    const aggP = gpsAgg[matrixPeriod].find((a: any) => a.id === pl.id)
-                    return (
-                      <tr key={pl.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                        <td className="py-1.5 px-3 sticky left-0 bg-white z-10" style={{ whiteSpace: 'nowrap' }}>
-                          <div className="flex items-center gap-1.5">
-                            <img src={pl.photo} alt={pl.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
-                              onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                            <span className="font-medium text-slate-800">{pl.name}</span>
-                          </div>
-                        </td>
-                        <td className="text-center py-1.5 px-2" style={{ whiteSpace: 'nowrap' }}>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">{pl.position}</span>
-                        </td>
-                        {filteredMatrixKeys.map(k => {
-                          const d = aggP?.agg.find((a: any) => a.date === k) as any
-                          const val = d ? getVal(d, matrixMetricKey) : null
-                          const colAvg = matrixColGroupAvgs[k]?.FP ?? 0
-                          const above = val !== null && colAvg > 0 && val > colAvg
-                          return (
-                            <td key={k} className="text-right py-1.5 px-2 tabular-nums font-semibold"
-                              style={val === null ? { color: '#cbd5e1' } : above
-                                ? { color: matrixMetric.accent, background: matrixMetric.accent + '12' }
-                                : { color: '#1e293b' }}>
-                              {val !== null ? val.toLocaleString() : '—'}
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    )
-                  })}
-                  {/* Column averages footer */}
-                  {(['GK', 'FP'] as DisplayPos[]).map(pos => (
-                    <tr key={`avg-${pos}`} style={{ backgroundColor: pos === 'GK' ? '#f59e0b08' : '#6366f108' }}>
-                      <td className="py-1 px-3 sticky left-0 z-10 text-[10px] font-bold"
-                        style={{ backgroundColor: pos === 'GK' ? '#f59e0b08' : '#6366f108', color: pos === 'GK' ? '#f59e0b' : '#6366f1', whiteSpace: 'nowrap' }}>
-                        {pos} 平均
-                      </td>
-                      <td />
-                      {filteredMatrixKeys.map(k => {
-                        const avg = matrixColGroupAvgs[k]?.[pos] ?? 0
-                        return (
-                          <td key={k} className="text-right py-1 px-2 tabular-nums text-[10px] font-bold"
-                            style={{ color: pos === 'GK' ? '#f59e0b' : '#6366f1' }}>
-                            {avg > 0 ? Math.round(avg).toLocaleString() : '—'}
+                      <>
+                        {/* Group header */}
+                        <tr key={`header-${pos}`}>
+                          <td colSpan={2 + filteredMatrixKeys.length} className="py-1 px-3 text-[10px] font-bold uppercase tracking-wider"
+                            style={{ backgroundColor: groupBg, color: groupColor }}>{groupLabel}</td>
+                        </tr>
+                        {/* Average row — FIRST in group */}
+                        <tr key={`avg-${pos}`} style={{ backgroundColor: groupBg }}>
+                          <td className="py-1 px-3 sticky left-0 z-10 text-[10px] font-bold"
+                            style={{ backgroundColor: groupBg, color: groupColor, whiteSpace: 'nowrap' }}>
+                            {pos} 平均
                           </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
+                          <td />
+                          {filteredMatrixKeys.map(k => {
+                            const avg = matrixColGroupAvgs[k]?.[pos] ?? 0
+                            return (
+                              <td key={k} className="text-right py-1 px-2 tabular-nums text-[10px] font-bold"
+                                style={{ color: groupColor }}>
+                                {avg > 0 ? Math.round(avg).toLocaleString() : '—'}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                        {/* Player rows */}
+                        {posPlayers.map(pl => {
+                          const aggP = gpsAgg[matrixPeriod].find((a: any) => a.id === pl.id)
+                          return (
+                            <tr key={pl.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                              <td className="py-1.5 px-3 sticky left-0 bg-white z-10" style={{ whiteSpace: 'nowrap' }}>
+                                <div className="flex items-center gap-1.5">
+                                  <img src={pl.photo} alt={pl.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                  <span className="font-medium text-slate-800">{pl.name}</span>
+                                </div>
+                              </td>
+                              <td className="text-center py-1.5 px-2" style={{ whiteSpace: 'nowrap' }}>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">{pl.position}</span>
+                              </td>
+                              {filteredMatrixKeys.map(k => {
+                                const d = aggP?.agg.find((a: any) => a.date === k) as any
+                                const val = d ? getVal(d, matrixMetricKey) : null
+                                const colAvg = matrixColGroupAvgs[k]?.[pos] ?? 0
+                                const above = val !== null && colAvg > 0 && val > colAvg
+                                return (
+                                  <td key={k} className="text-right py-1.5 px-2 tabular-nums font-semibold"
+                                    style={val === null ? { color: '#cbd5e1' } : above
+                                      ? { color: matrixMetric.accent, background: matrixMetric.accent + '12' }
+                                      : { color: '#1e293b' }}>
+                                    {val !== null ? val.toLocaleString() : '—'}
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          )
+                        })}
+                      </>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
