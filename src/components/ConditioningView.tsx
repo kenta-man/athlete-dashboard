@@ -35,22 +35,25 @@ function Card({ title, children, noPad }: { title: string; children: React.React
   )
 }
 
-// ─── Section item ─────────────────────────────────────────────────────────────
+// ─── Section item — 3-column grid: label | value | delta ─────────────────────
 function SectionItem({
   label, curr, prev, unit, decimals = 1,
 }: { label: string; curr: number; prev: number | undefined; unit: string; decimals?: number }) {
-  const diff = prev !== undefined ? +(curr - prev).toFixed(decimals) : null
-  const diffColor = diff === null || diff === 0 ? undefined : diff > 0 ? '#dc2626' : '#2563eb'
+  const diff   = prev !== undefined ? +(curr - prev).toFixed(decimals) : null
+  const diffColor  = diff === null ? '#d1d5db' : diff > 0 ? '#dc2626' : diff < 0 ? '#2563eb' : '#9ca3af'
+  const diffText   = diff === null ? '—' : diff > 0 ? `+${diff}` : diff < 0 ? `${diff}` : '±0'
   return (
-    <div className="flex items-center justify-between py-0.5 border-b border-slate-100 last:border-0 gap-1">
-      <span className="text-slate-700 flex-shrink-0 leading-tight font-medium" style={{ fontSize: 10 }}>{label}</span>
-      <span className="font-bold flex items-center gap-0.5 text-right flex-shrink-0" style={{ fontSize: 11, color: '#111827' }}>
-        {curr}{unit && <span className="font-normal text-slate-400" style={{ fontSize: 10 }}>{unit}</span>}
-        {diff !== null && diff !== 0 && (
-          <span className="font-bold ml-0.5" style={{ fontSize: 9, color: diffColor }}>
-            {diff > 0 ? `+${diff}` : `${diff}`}
-          </span>
-        )}
+    <div className="border-b border-slate-100 last:border-0"
+      style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', alignItems: 'center', gap: '0 4px', padding: '3px 0' }}>
+      {/* label */}
+      <span style={{ fontSize: 10, fontWeight: 500, color: '#374151', lineHeight: 1.3 }}>{label}</span>
+      {/* value + unit */}
+      <span className="tabular-nums" style={{ fontSize: 11, fontWeight: 700, color: '#111827', textAlign: 'right', whiteSpace: 'nowrap' }}>
+        {curr}<span style={{ fontSize: 9, fontWeight: 400, color: '#9ca3af', marginLeft: 1 }}>{unit}</span>
+      </span>
+      {/* delta — fixed width so column aligns across all rows */}
+      <span className="tabular-nums" style={{ fontSize: 9, fontWeight: 700, color: diffColor, textAlign: 'right', width: 36, whiteSpace: 'nowrap' }}>
+        {diffText}
       </span>
     </div>
   )
