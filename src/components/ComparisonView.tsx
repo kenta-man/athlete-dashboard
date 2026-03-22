@@ -995,39 +995,31 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                   <>
                     <div>
                       <p className="text-[10px] text-slate-400">対戦相手</p>
-                      <p className="text-xs font-bold text-slate-800">
-                        {sessionVenue === 'H' ? '🏠' : '✈️'} {sessionOpponent}
-                        <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5"
+                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                        <span className="text-xs font-bold text-slate-800">
+                          {sessionVenue === 'H' ? '🏠' : '✈️'} {sessionOpponent}
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5"
                           style={sessionVenue === 'H' ? { color: '#fff', background: '#1e6fad', borderRadius: 2 } : { color: '#fff', background: '#5b21b6', borderRadius: 2 }}>
                           {sessionVenue === 'H' ? 'HOME' : 'AWAY'}
                         </span>
-                      </p>
-                    </div>
-                    {sessionScore && (
-                      <div>
-                        <p className="text-[10px] text-slate-400">スコア</p>
-                        <p className="text-xs font-bold text-slate-800">{sessionScore}</p>
+                        {sessionScore && (
+                          <span className="text-sm font-bold text-slate-800">{sessionScore}</span>
+                        )}
                       </div>
-                    )}
-                    {(sessionSample?.weather || sessionSample?.attendance) && (
-                      <div className="pt-1 border-t border-slate-100 space-y-1.5 mt-1">
-                        {sessionSample?.weather && (
-                          <div>
-                            <p className="text-[10px] text-slate-400">天候 / 気温</p>
-                            <p className="text-xs font-bold text-slate-800">
-                              {sessionSample.weather === '晴' ? '☀️ 晴' : sessionSample.weather === '曇' ? '☁️ 曇' : '🌧 雨'}
-                              {sessionSample?.temperature != null && (
-                                <span className="ml-1.5 text-slate-600">{sessionSample.temperature}°C</span>
-                              )}
-                            </p>
-                          </div>
-                        )}
-                        {sessionSample?.attendance && (
-                          <div>
-                            <p className="text-[10px] text-slate-400">入場者数</p>
-                            <p className="text-xs font-bold text-slate-800">{sessionSample.attendance.toLocaleString()} 人</p>
-                          </div>
-                        )}
+                    </div>
+                    {sessionSample?.weather && (
+                      <div className="pt-1 border-t border-slate-100 mt-1">
+                        <p className="text-[10px] text-slate-400">天候 / 気温 / 湿度</p>
+                        <p className="text-xs font-bold text-slate-800 mt-0.5">
+                          {sessionSample.weather === '晴' ? '☀️ 晴' : sessionSample.weather === '曇' ? '☁️ 曇' : '🌧 雨'}
+                          {sessionSample?.temperature != null && (
+                            <span className="ml-1.5 text-slate-700">{sessionSample.temperature}°C</span>
+                          )}
+                          {sessionSample?.humidity != null && (
+                            <span className="ml-1.5 text-slate-500">{sessionSample.humidity}%</span>
+                          )}
+                        </p>
                       </div>
                     )}
                   </>
@@ -1042,36 +1034,36 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
               </div>
               <div className="p-3 flex flex-col flex-1">
                 {/* Month tabs */}
-                <div className="flex gap-1 flex-wrap mb-2">
+                <div className="flex gap-1.5 flex-wrap mb-2">
                   {allSessionMonths.map(m => {
                     const mNum = parseInt(m.slice(5))
                     const isSel = selectedSessionMonth === m
                     return (
                       <button key={m} onClick={() => setSelectedSessionMonth(m)}
-                        className="px-4 py-1.5 text-sm font-bold border transition-all"
+                        className="px-5 py-2 text-base font-bold border transition-all"
                         style={isSel
-                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
-                          : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
+                          : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
                         {mNum}月
                       </button>
                     )
                   })}
                 </div>
                 {/* Day pills */}
-                <div className="grid grid-cols-7 gap-1 overflow-y-auto flex-1" style={{ maxHeight: 110, scrollbarWidth: 'none' }}>
+                <div className="grid grid-cols-7 gap-1 overflow-y-auto flex-1" style={{ maxHeight: 120, scrollbarWidth: 'none' }}>
                   {monthSessionDates.map(d => {
                     const dt = new Date(d)
                     const isMatch = gpsAgg.session.some((p: any) => p.agg.find((s: any) => s.date === d && s.sessionType === 'match'))
                     const isSel = selectedSessionDate === d
                     return (
                       <button key={d} onClick={() => setSelectedSessionDate(d)}
-                        className="flex items-center justify-center gap-0.5 py-0.5 text-[9px] font-medium border transition-all"
+                        className="flex items-center justify-center gap-0.5 py-1 text-xs font-semibold border transition-all leading-none"
                         style={isSel
-                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
                           : isMatch
-                            ? { color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5', borderRadius: 3 }
-                            : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
-                        {isMatch && <span style={{ fontSize: 9 }}>⚽</span>}
+                            ? { color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5', borderRadius: 4 }
+                            : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
+                        {isMatch && <span style={{ fontSize: 10 }}>⚽</span>}
                         {dt.getDate()}
                       </button>
                     )
@@ -1082,7 +1074,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                     <span className="inline-block w-2 h-2 rounded-sm bg-white border border-slate-200" />練習
                   </span>
                   <span className="flex items-center gap-1 text-[10px] text-red-400">
-                    <span style={{ fontSize: 9 }}>⚽</span>試合
+                    <span style={{ fontSize: 10 }}>⚽</span>試合
                   </span>
                 </div>
               </div>

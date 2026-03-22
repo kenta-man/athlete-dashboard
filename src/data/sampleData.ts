@@ -12,6 +12,7 @@ export interface GpsData {
   score?: string           // 試合の場合：スコア
   weather?: string         // 試合の場合：天候
   temperature?: number     // 試合の場合：気温（℃）
+  humidity?: number        // 試合の場合：湿度（%）
   attendance?: number      // 試合の場合：入場者数
   isStarter?: boolean      // 試合の場合：スタメンか否か
   totalDistance: number; distancePerMinute: number
@@ -64,22 +65,22 @@ const MATCH_DATES = new Set([
   '2025-07-02','2025-07-16',
 ])
 
-// 試合詳細：対戦相手 / 会場 / スコア / 天候 / 気温 / 入場者数
-const MATCH_DETAILS: Record<string, { opponent: string; venue: 'H' | 'A'; score: string; weather: string; temperature: number; attendance: number }> = {
-  '2025-01-15': { opponent: 'FC東京',        venue: 'H', score: '2-1', weather: '晴',  temperature:  7, attendance: 18520 },
-  '2025-01-29': { opponent: '横浜FC',        venue: 'A', score: '1-1', weather: '曇',  temperature:  5, attendance: 12340 },
-  '2025-02-12': { opponent: '川崎F',         venue: 'H', score: '3-0', weather: '晴',  temperature:  9, attendance: 21800 },
-  '2025-02-26': { opponent: '浦和R',         venue: 'A', score: '0-2', weather: '雨',  temperature:  7, attendance: 31500 },
-  '2025-03-12': { opponent: 'G大阪',         venue: 'H', score: '1-0', weather: '晴',  temperature: 13, attendance: 19200 },
-  '2025-03-26': { opponent: 'C大阪',         venue: 'A', score: '2-2', weather: '曇',  temperature: 12, attendance: 23600 },
-  '2025-04-09': { opponent: '鹿島A',         venue: 'H', score: '1-3', weather: '晴',  temperature: 17, attendance: 20100 },
-  '2025-04-23': { opponent: '名古屋G',       venue: 'A', score: '2-1', weather: '晴',  temperature: 19, attendance: 17800 },
-  '2025-05-07': { opponent: 'サンフ広島',     venue: 'H', score: '0-0', weather: '曇',  temperature: 21, attendance: 22300 },
-  '2025-05-21': { opponent: 'ヴィッセル神戸', venue: 'A', score: '1-2', weather: '晴',  temperature: 24, attendance: 28900 },
-  '2025-06-04': { opponent: '柏R',           venue: 'H', score: '3-1', weather: '晴',  temperature: 26, attendance: 19700 },
-  '2025-06-18': { opponent: 'アビスパ福岡',   venue: 'A', score: '1-1', weather: '雨',  temperature: 25, attendance: 16400 },
-  '2025-07-02': { opponent: 'ベガルタ仙台',   venue: 'H', score: '2-0', weather: '晴',  temperature: 29, attendance: 18100 },
-  '2025-07-16': { opponent: 'アルビ新潟',     venue: 'A', score: '1-1', weather: '曇',  temperature: 31, attendance: 14200 },
+// 試合詳細：対戦相手 / 会場 / スコア / 天候 / 気温 / 湿度 / 入場者数
+const MATCH_DETAILS: Record<string, { opponent: string; venue: 'H' | 'A'; score: string; weather: string; temperature: number; humidity: number; attendance: number }> = {
+  '2025-01-15': { opponent: 'FC東京',        venue: 'H', score: '2-1', weather: '晴',  temperature:  7, humidity: 42, attendance: 18520 },
+  '2025-01-29': { opponent: '横浜FC',        venue: 'A', score: '1-1', weather: '曇',  temperature:  5, humidity: 55, attendance: 12340 },
+  '2025-02-12': { opponent: '川崎F',         venue: 'H', score: '3-0', weather: '晴',  temperature:  9, humidity: 45, attendance: 21800 },
+  '2025-02-26': { opponent: '浦和R',         venue: 'A', score: '0-2', weather: '雨',  temperature:  7, humidity: 80, attendance: 31500 },
+  '2025-03-12': { opponent: 'G大阪',         venue: 'H', score: '1-0', weather: '晴',  temperature: 13, humidity: 52, attendance: 19200 },
+  '2025-03-26': { opponent: 'C大阪',         venue: 'A', score: '2-2', weather: '曇',  temperature: 12, humidity: 62, attendance: 23600 },
+  '2025-04-09': { opponent: '鹿島A',         venue: 'H', score: '1-3', weather: '晴',  temperature: 17, humidity: 58, attendance: 20100 },
+  '2025-04-23': { opponent: '名古屋G',       venue: 'A', score: '2-1', weather: '晴',  temperature: 19, humidity: 60, attendance: 17800 },
+  '2025-05-07': { opponent: 'サンフ広島',     venue: 'H', score: '0-0', weather: '曇',  temperature: 21, humidity: 68, attendance: 22300 },
+  '2025-05-21': { opponent: 'ヴィッセル神戸', venue: 'A', score: '1-2', weather: '晴',  temperature: 24, humidity: 63, attendance: 28900 },
+  '2025-06-04': { opponent: '柏R',           venue: 'H', score: '3-1', weather: '晴',  temperature: 26, humidity: 70, attendance: 19700 },
+  '2025-06-18': { opponent: 'アビスパ福岡',   venue: 'A', score: '1-1', weather: '雨',  temperature: 25, humidity: 88, attendance: 16400 },
+  '2025-07-02': { opponent: 'ベガルタ仙台',   venue: 'H', score: '2-0', weather: '晴',  temperature: 29, humidity: 72, attendance: 18100 },
+  '2025-07-16': { opponent: 'アルビ新潟',     venue: 'A', score: '1-1', weather: '曇',  temperature: 31, humidity: 78, attendance: 14200 },
 }
 
 // 試合出場選手：starters=スタメン11人, subs=ベンチ5人 (imgId)
@@ -184,6 +185,7 @@ function makeGps(base: typeof GPS_BASE['FW'] & { dv?: number; sv?: number }, dat
         score: matchDetail.score,
         weather: matchDetail.weather,
         temperature: matchDetail.temperature,
+        humidity: matchDetail.humidity,
         attendance: matchDetail.attendance,
       } : {}),
       totalDistance: isMatch ? Math.round(tot * 1.12) : tot,
