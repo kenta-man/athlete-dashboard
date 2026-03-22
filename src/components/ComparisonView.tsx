@@ -552,7 +552,7 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
             {GPS_METRICS.map((m, i) => (
               <div key={m.key} className="text-center flex-shrink-0 px-2.5 py-1"
                 style={i < GPS_METRICS.length - 1 ? { borderRight: '1px solid #f1f5f9' } : {}}>
-                <div className="text-[8px] text-slate-400 whitespace-nowrap leading-tight mb-0.5">{m.label}</div>
+                <div className="text-[8px] text-slate-600 whitespace-nowrap leading-tight mb-0.5">{m.label}</div>
                 <div className="text-xs font-bold text-slate-800 whitespace-nowrap">{(posAvgs[pos]?.[m.key] ?? 0).toLocaleString()}</div>
                 <div className="text-[8px] text-slate-400">{m.unit}</div>
               </div>
