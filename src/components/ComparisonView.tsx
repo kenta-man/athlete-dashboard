@@ -548,11 +548,12 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
             <span className="text-xs font-normal" style={{ color: '#888' }}>平均</span>
             <span className="w-2 h-2 rounded-full ml-auto flex-shrink-0" style={{ backgroundColor: GROUP_COLORS[pos] }} />
           </div>
-          <div className="flex gap-3 flex-wrap p-3">
-            {GPS_METRICS.map(m => (
-              <div key={m.key} className="text-center min-w-[60px]">
-                <div className="text-[9px] text-slate-400 whitespace-nowrap leading-tight">{m.label}</div>
-                <div className="text-sm font-bold text-slate-800">{(posAvgs[pos]?.[m.key] ?? 0).toLocaleString()}</div>
+          <div className="flex gap-0 overflow-x-auto px-2 py-2" style={{ scrollbarWidth: 'none' }}>
+            {GPS_METRICS.map((m, i) => (
+              <div key={m.key} className="text-center flex-shrink-0 px-2.5 py-1"
+                style={i < GPS_METRICS.length - 1 ? { borderRight: '1px solid #f1f5f9' } : {}}>
+                <div className="text-[8px] text-slate-400 whitespace-nowrap leading-tight mb-0.5">{m.label}</div>
+                <div className="text-xs font-bold text-slate-800 whitespace-nowrap">{(posAvgs[pos]?.[m.key] ?? 0).toLocaleString()}</div>
                 <div className="text-[8px] text-slate-400">{m.unit}</div>
               </div>
             ))}
