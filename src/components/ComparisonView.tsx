@@ -210,10 +210,13 @@ export default function ComparisonView({ players, dataTab }: Props) {
   /* ── GPS matrix state ── */
   const [matrixMetricKey, setMatrixMetricKey] = useState('totalDistance')
   const [matrixPeriod, setMatrixPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
-  const [tableSort, setTableSort] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'totalDistance', dir: 'desc' })
-  const handleTableSort = (key: string) => {
-    setTableSort(prev => prev.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' })
-  }
+  const [selectedMatrixKeys, setSelectedMatrixKeys] = useState<Set<string>>(new Set())
+  const [matrixMonthFilter, setMatrixMonthFilter] = useState<Set<string>>(new Set())
+  // Reset key selection when period changes
+  useEffect(() => {
+    setSelectedMatrixKeys(new Set())
+    setMatrixMonthFilter(new Set())
+  }, [matrixPeriod])
 
   /* ── Conditioning internal state ── */
   const [condPeriod, setCondPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
@@ -236,6 +239,61 @@ export default function ComparisonView({ players, dataTab }: Props) {
       monthly: compute('monthly'),
     }
   }, [players])
+
+  /* ── Matrix time-series keys ── */
+  const allMatrixKeys = useMemo(() => {
+    const s = new Set<string>()
+    gpsAgg[matrixPeriod].forEach((p: any) => p.agg.forEach((d: any) => s.add(d.date)))
+    return [...s].sort()
+  }, [gpsAgg, matrixPeriod])
+
+  const allMatrixMonths = useMemo(() =>
+    [...new Set(allMatrixKeys.map(k => k.slice(0, 7)))].sort(),
+    [allMatrixKeys]
+  )
+
+  const filteredMatrixKeys = useMemo(() => {
+    // For daily: month filter narrows visible dates
+    if (matrixPeriod === 'daily' && matrixMonthFilter.size > 0) {
+      const base = allMatrixKeys.filter(k => matrixMonthFilter.has(k.slice(0, 7)))
+      return selectedMatrixKeys.size > 0 ? base.filter(k => selectedMatrixKeys.has(k)) : base
+    }
+    return selectedMatrixKeys.size > 0 ? allMatrixKeys.filter(k => selectedMatrixKeys.has(k)) : allMatrixKeys
+  }, [allMatrixKeys, matrixPeriod, matrixMonthFilter, selectedMatrixKeys])
+
+  const formatMatrixKey = (k: string) => {
+    if (matrixPeriod === 'daily') {
+      const [, m, d] = k.split('-')
+      return `${parseInt(m)}/${parseInt(d)}`
+    }
+    if (matrixPeriod === 'weekly') return k.replace(/^\d{4}-/, '')  // "W01"
+    if (matrixPeriod === 'monthly') return `${parseInt(k.slice(5))}月`
+    return k
+  }
+
+  // Per-column group averages (for above-avg highlight)
+  const matrixColGroupAvgs = useMemo(() => {
+    const result: Record<string, Record<DisplayPos, number>> = {}
+    filteredMatrixKeys.forEach(k => {
+      result[k] = {} as Record<DisplayPos, number>
+      DISPLAY_POSITIONS.forEach(pos => {
+        const group = gpsAgg[matrixPeriod].filter((p: any) => POS_GROUPS[pos].includes(p.position))
+        const vals = group.map((p: any) => {
+          const d = p.agg.find((a: any) => a.date === k) as any
+          return d ? getVal(d, matrixMetricKey) : null
+        }).filter((v): v is number => v !== null)
+        result[k][pos] = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0
+      })
+    })
+    return result
+  }, [filteredMatrixKeys, gpsAgg, matrixPeriod, matrixMetricKey])
+
+  // All selectable metrics (GPS + Zone)
+  const ALL_MATRIX_METRICS = [
+    ...GPS_METRICS,
+    ...ZONE_COLS.map(z => ({ key: z.key, label: z.label, unit: 'm', accent: z.color })),
+  ]
+  const matrixMetric = ALL_MATRIX_METRICS.find(m => m.key === matrixMetricKey) ?? GPS_METRICS[0]
 
   /* ── Session dates ── */
   const allSessionDates = useMemo(() =>
@@ -299,7 +357,6 @@ export default function ComparisonView({ players, dataTab }: Props) {
   }
 
   const sessionPosAvgs = useMemo(() => computePosAvgs(sessionPlayersOnDate, true), [sessionPlayersOnDate])
-  const matrixPosAvgs  = useMemo(() => computePosAvgs(gpsAgg[matrixPeriod]),         [gpsAgg, matrixPeriod])
 
   /* ── Rankings ── */
   const makeRanking = (aggPlayers: any[], key: string, fromSession = false) =>
@@ -311,9 +368,7 @@ export default function ComparisonView({ players, dataTab }: Props) {
     }).sort((a: any, b: any) => b.value - a.value)
 
   const sessionDistRank = useMemo(() => makeRanking(sessionPlayersOnDate, 'totalDistance', true), [sessionPlayersOnDate])
-  const sessionHsrRank  = useMemo(() => makeRanking(sessionPlayersOnDate, 'hsr', true),           [sessionPlayersOnDate])
-  const matrixDistRank  = useMemo(() => makeRanking(gpsAgg[matrixPeriod], 'totalDistance'),        [gpsAgg, matrixPeriod])
-  const matrixHsrRank   = useMemo(() => makeRanking(gpsAgg[matrixPeriod], 'hsr'),                  [gpsAgg, matrixPeriod])
+  const sessionHsrRank  = useMemo(() => makeRanking(sessionPlayersOnDate, 'hsr', true), [sessionPlayersOnDate])
 
   const getGroupAvg = (ranking: any[], posGroup: DisplayPos) => {
     const group = ranking.filter((p: any) => POS_GROUPS[posGroup].includes(p.pos))
@@ -344,141 +399,11 @@ export default function ComparisonView({ players, dataTab }: Props) {
     </div>
   )
 
-  /* ── All-players GPS table ── */
-  const renderGpsTable = (aggPlayers: any[], posAvgs: Record<string, Record<string, number>>) => (
-    <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
-      <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
-        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>全選手 GPS データ一覧</h3>
-        <span className="text-[10px]" style={{ color: '#888' }}>ポジション平均以上のセルを強調</span>
-      </div>
-      <div className="overflow-x-auto p-4">
-        <table className="text-xs border-collapse" style={{ tableLayout: 'fixed', width: '100%', minWidth: 900 }}>
-          <colgroup>
-            <col style={{ width: 140 }} />
-            <col style={{ width: 44 }} />
-            {GPS_METRICS.map(m => <col key={m.key} style={{ width: 72 }} />)}
-            {ZONE_COLS.map(z => <col key={z.key} style={{ width: 72 }} />)}
-          </colgroup>
-          <thead>
-            <tr style={{ backgroundColor: '#2a2a2a' }}>
-              <th className="text-left py-2 pr-3 font-bold sticky left-0"
-                style={{ color: '#ccc', backgroundColor: '#2a2a2a', fontSize: 11 }}>選手</th>
-              <th className="text-center py-2 px-1 font-bold" style={{ color: '#ccc', fontSize: 11 }}>POS</th>
-              {GPS_METRICS.map(m => {
-                const active = tableSort.key === m.key
-                return (
-                  <th key={m.key}
-                    className="text-right py-2 px-1 font-bold leading-tight cursor-pointer select-none"
-                    style={{ color: active ? '#fff' : '#aaa', fontSize: 11, backgroundColor: active ? '#2563eb' : undefined }}
-                    onClick={() => handleTableSort(m.key)}>
-                    <div className="break-words hyphens-auto">{m.label}</div>
-                    <div className="flex items-center justify-end gap-0.5 mt-0.5">
-                      <span style={{ fontSize: 9, color: active ? '#ddd' : '#666' }}>{m.unit}</span>
-                      <span style={{ fontSize: 10, color: active ? '#fff' : '#555' }}>
-                        {active ? (tableSort.dir === 'desc' ? '↓' : '↑') : '↕'}
-                      </span>
-                    </div>
-                  </th>
-                )
-              })}
-              {ZONE_COLS.map(z => {
-                const active = tableSort.key === z.key
-                return (
-                  <th key={z.key}
-                    className="text-right py-2 px-1 font-bold leading-tight cursor-pointer select-none"
-                    style={{ color: active ? '#fff' : '#aaa', fontSize: 11, backgroundColor: active ? '#2563eb' : undefined }}
-                    onClick={() => handleTableSort(z.key)}>
-                    <div className="break-words">{z.label}</div>
-                    <div className="flex items-center justify-end gap-0.5 mt-0.5">
-                      <span style={{ fontSize: 9, color: active ? '#ddd' : '#666' }}>m</span>
-                      <span style={{ fontSize: 10, color: active ? '#fff' : '#555' }}>
-                        {active ? (tableSort.dir === 'desc' ? '↓' : '↑') : '↕'}
-                      </span>
-                    </div>
-                  </th>
-                )
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {[...aggPlayers].sort((a: any, b: any) => {
-              const aLast = a.agg[a.agg.length - 1] as any
-              const bLast = b.agg[b.agg.length - 1] as any
-              const aVal = getVal(aLast ?? {}, tableSort.key)
-              const bVal = getVal(bLast ?? {}, tableSort.key)
-              return tableSort.dir === 'desc' ? bVal - aVal : aVal - bVal
-            }).map((p: any) => {
-              const last = p.agg[p.agg.length - 1] as any
-              const posGroup: DisplayPos = (POS_GROUPS.GK as string[]).includes(p.position) ? 'GK' : 'FP'
-              const groupAvgs = posAvgs[posGroup] ?? {}
-              return (
-                <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                  <td className="py-1.5 pr-2 sticky left-0 bg-white">
-                    <div className="flex items-center gap-1.5">
-                      <img src={p.photo} alt={p.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
-                        onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                      <span className="font-medium text-slate-800 truncate">{p.name}</span>
-                    </div>
-                  </td>
-                  <td className="text-center py-1.5 px-1">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">
-                      {p.position}
-                    </span>
-                  </td>
-                  {GPS_METRICS.map(m => {
-                    const val = last ? (getVal(last, m.key) || 0) : 0
-                    const avg = groupAvgs[m.key] ?? 0
-                    const aboveAvg = avg > 0 && val > avg
-                    return (
-                      <td key={m.key} className="text-right py-1.5 px-1 font-semibold tabular-nums"
-                        style={aboveAvg ? { color: m.accent, background: m.accent + '10' } : { color: '#1e293b' }}>
-                        {val.toLocaleString()}
-                      </td>
-                    )
-                  })}
-                  {ZONE_COLS.map(z => {
-                    const val = last ? (getVal(last, z.key) || 0) : 0
-                    return (
-                      <td key={z.key} className="text-right py-1.5 px-1 tabular-nums text-slate-700">
-                        {val.toLocaleString()}
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-
-  /* ── Comparison Matrix table: player × period ── */
-  const matrixMetric = GPS_METRICS.find(m => m.key === matrixMetricKey) ?? GPS_METRICS[0]
-
-  const matrixRows = useMemo(() => {
-    return players.map(pl => {
-      const posGroup: DisplayPos = POS_GROUPS.GK.includes(pl.position) ? 'GK' : 'FP'
-      const vals: Record<string, number> = {}
-      const aboves: Record<string, boolean> = {}
-      MATRIX_PERIODS.forEach(({ key }) => {
-        const aggP = gpsAgg[key].find((a: any) => a.id === pl.id)
-        const last = aggP?.agg[aggP.agg.length - 1] as any
-        const v = last ? getVal(last, matrixMetricKey) : 0
-        vals[key] = v
-        // group avg for this period
-        const groupPlayers = gpsAgg[key].filter((a: any) => POS_GROUPS[posGroup].includes(a.position))
-        const avg = groupPlayers.length
-          ? groupPlayers.reduce((s: number, a: any) => {
-              const l = a.agg[a.agg.length - 1] as any
-              return s + (l ? getVal(l, matrixMetricKey) : 0)
-            }, 0) / groupPlayers.length
-          : 0
-        aboves[key] = v > avg
-      })
-      return { ...pl, posGroup, vals, aboves }
-    }).sort((a, b) => b.vals.daily - a.vals.daily)
-  }, [players, matrixMetricKey, gpsAgg])
+  /* ── Players sorted by position for matrix rows ── */
+  const matrixPlayerRows = useMemo(() => {
+    const posOrder: Record<string, number> = { GK: 0, DF: 1, MF: 2, FW: 3 }
+    return [...players].sort((a, b) => (posOrder[a.position] ?? 9) - (posOrder[b.position] ?? 9))
+  }, [players])
 
   /* ── Conditioning ── */
   const condAggPlayers = useMemo(() =>
@@ -763,7 +688,7 @@ export default function ComparisonView({ players, dataTab }: Props) {
       {/* ════════ MATRIX VIEW ════════ */}
       {compView === 'matrix' && (
         <>
-          {/* Period selector + metric selector in header */}
+          {/* Period selector in header */}
           <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
             <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
               <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>比較マトリクス</span>
@@ -781,95 +706,216 @@ export default function ComparisonView({ players, dataTab }: Props) {
             </div>
           </div>
 
-          {/* Metric selector */}
-          <div className="flex flex-wrap gap-2">
-            {GPS_METRICS.map(m => (
-              <button key={m.key} onClick={() => setMatrixMetricKey(m.key)}
-                className="px-3 py-1.5 text-xs font-medium border transition-all"
-                style={matrixMetricKey === m.key
-                  ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
-                  : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
-                {m.label}
-              </button>
-            ))}
+          {/* Metric selector: GPS metrics + Zone distance buttons */}
+          <div className="bg-white border border-slate-200 p-3 space-y-2" style={{ borderRadius: 0 }}>
+            <div className="flex flex-wrap gap-1.5">
+              {GPS_METRICS.map(m => (
+                <button key={m.key} onClick={() => setMatrixMetricKey(m.key)}
+                  className="px-3 py-1.5 text-xs font-medium border transition-all"
+                  style={matrixMetricKey === m.key
+                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
+                    : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            {/* Zone distance buttons */}
+            <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
+              <span className="text-[10px] text-slate-400 self-center mr-1">ZONE別</span>
+              {ZONE_COLS.map(z => (
+                <button key={z.key} onClick={() => setMatrixMetricKey(z.key)}
+                  className="px-2.5 py-1 text-xs font-medium border transition-all"
+                  style={matrixMetricKey === z.key
+                    ? { color: '#fff', background: z.color, borderColor: z.color, borderRadius: 4 }
+                    : { color: z.color, borderColor: z.color + '60', background: z.color + '08', borderRadius: 4 }}>
+                  {z.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Comparison matrix: player × period */}
+          {/* 表示期間 selector */}
+          <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
+            <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: '#1a1a1a' }}>
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>表示期間</span>
+              {(selectedMatrixKeys.size > 0 || matrixMonthFilter.size > 0) && (
+                <button onClick={() => { setSelectedMatrixKeys(new Set()); setMatrixMonthFilter(new Set()) }}
+                  className="ml-auto text-[10px] px-2 py-0.5 font-bold"
+                  style={{ color: '#60a5fa', borderRadius: 2, border: '1px solid #60a5fa33', background: 'transparent' }}>
+                  全期間
+                </button>
+              )}
+            </div>
+            {matrixPeriod === 'daily' ? (
+              <div className="p-2 space-y-2">
+                {/* Month filter tabs for daily */}
+                <div className="flex flex-wrap gap-1">
+                  {allMatrixMonths.map(m => {
+                    const mNum = parseInt(m.slice(5))
+                    const sel = matrixMonthFilter.has(m)
+                    return (
+                      <button key={m}
+                        onClick={() => setMatrixMonthFilter(prev => { const n = new Set(prev); sel ? n.delete(m) : n.add(m); return n })}
+                        className="px-3 py-1 text-xs font-bold border transition-all"
+                        style={sel
+                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                          : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                        {mNum}月
+                      </button>
+                    )
+                  })}
+                </div>
+                {/* Day pills for visible dates */}
+                <div className="flex flex-wrap gap-1">
+                  {(matrixMonthFilter.size > 0
+                    ? allMatrixKeys.filter(k => matrixMonthFilter.has(k.slice(0, 7)))
+                    : allMatrixKeys
+                  ).map(k => {
+                    const sel = selectedMatrixKeys.has(k)
+                    const [, mo, dy] = k.split('-')
+                    return (
+                      <button key={k}
+                        onClick={() => setSelectedMatrixKeys(prev => { const n = new Set(prev); sel ? n.delete(k) : n.add(k); return n })}
+                        className="px-2 py-0.5 text-[10px] font-medium border transition-all"
+                        style={sel
+                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                          : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                        {parseInt(mo)}/{parseInt(dy)}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="p-2 flex flex-wrap gap-1">
+                {allMatrixKeys.map(k => {
+                  const sel = selectedMatrixKeys.has(k)
+                  return (
+                    <button key={k}
+                      onClick={() => setSelectedMatrixKeys(prev => { const n = new Set(prev); sel ? n.delete(k) : n.add(k); return n })}
+                      className="px-2.5 py-1 text-[10px] font-bold border transition-all"
+                      style={sel
+                        ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                        : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
+                      {formatMatrixKey(k)}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Time-series matrix table: player rows × date columns */}
           <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: 0 }}>
             <div className="px-4 py-2 flex items-center gap-3" style={{ backgroundColor: '#1a1a1a' }}>
               <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>
-                {matrixMetric.label}（{matrixMetric.unit}）　選手別・期間比較
+                {matrixMetric.label}（{matrixMetric.unit}）　推移比較
               </span>
               <span className="text-[10px]" style={{ color: '#888' }}>ポジション平均以上を強調</span>
             </div>
             <div className="overflow-x-auto">
-              <table className="text-xs border-collapse w-full" style={{ minWidth: 480 }}>
+              <table className="text-xs border-collapse" style={{ tableLayout: 'auto' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#2a2a2a' }}>
-                    <th className="text-left py-2 px-3 font-bold sticky left-0"
-                      style={{ color: '#ccc', backgroundColor: '#2a2a2a', fontSize: 11, minWidth: 140 }}>選手</th>
-                    <th className="text-center py-2 px-2 font-bold" style={{ color: '#ccc', fontSize: 11, width: 50 }}>POS</th>
-                    {MATRIX_PERIODS.map(p => (
-                      <th key={p.key} className="text-right py-2 px-3 font-bold" style={{ color: '#ccc', fontSize: 11, width: 110 }}>
-                        {p.label}最新
+                    <th className="text-left py-2 px-3 font-bold sticky left-0 z-10"
+                      style={{ color: '#ccc', backgroundColor: '#2a2a2a', fontSize: 11, minWidth: 130, whiteSpace: 'nowrap' }}>選手</th>
+                    <th className="text-center py-2 px-2 font-bold"
+                      style={{ color: '#ccc', fontSize: 11, width: 48, whiteSpace: 'nowrap' }}>POS</th>
+                    {filteredMatrixKeys.map(k => (
+                      <th key={k} className="text-right py-2 px-2 font-bold"
+                        style={{ color: '#ccc', fontSize: 10, whiteSpace: 'nowrap', minWidth: 52 }}>
+                        {formatMatrixKey(k)}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {/* GK group */}
+                  {/* GK group header */}
                   <tr>
-                    <td colSpan={5} className="py-1 px-3 text-[10px] font-bold uppercase tracking-wider"
+                    <td colSpan={2 + filteredMatrixKeys.length} className="py-1 px-3 text-[10px] font-bold uppercase tracking-wider"
                       style={{ backgroundColor: '#f59e0b15', color: '#f59e0b' }}>GK</td>
                   </tr>
-                  {matrixRows.filter(p => p.posGroup === 'GK').map(p => (
-                    <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                      <td className="py-1.5 px-3 sticky left-0 bg-white">
-                        <div className="flex items-center gap-1.5">
-                          <img src={p.photo} alt={p.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
-                            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                          <span className="font-medium text-slate-800 truncate">{p.name}</span>
-                        </div>
-                      </td>
-                      <td className="text-center py-1.5 px-2">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">{p.position}</span>
-                      </td>
-                      {MATRIX_PERIODS.map(({ key }) => {
-                        const v = p.vals[key]
-                        const above = p.aboves[key]
-                        return (
-                          <td key={key} className="text-right py-1.5 px-3 font-semibold tabular-nums"
-                            style={above ? { color: matrixMetric.accent, background: matrixMetric.accent + '12' } : { color: '#1e293b' }}>
-                            {v.toLocaleString()}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
-                  {/* FP group */}
+                  {matrixPlayerRows.filter(p => POS_GROUPS.GK.includes(p.position)).map(pl => {
+                    const aggP = gpsAgg[matrixPeriod].find((a: any) => a.id === pl.id)
+                    return (
+                      <tr key={pl.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                        <td className="py-1.5 px-3 sticky left-0 bg-white z-10" style={{ whiteSpace: 'nowrap' }}>
+                          <div className="flex items-center gap-1.5">
+                            <img src={pl.photo} alt={pl.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                              onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                            <span className="font-medium text-slate-800">{pl.name}</span>
+                          </div>
+                        </td>
+                        <td className="text-center py-1.5 px-2" style={{ whiteSpace: 'nowrap' }}>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">{pl.position}</span>
+                        </td>
+                        {filteredMatrixKeys.map(k => {
+                          const d = aggP?.agg.find((a: any) => a.date === k) as any
+                          const val = d ? getVal(d, matrixMetricKey) : null
+                          const colAvg = matrixColGroupAvgs[k]?.GK ?? 0
+                          const above = val !== null && colAvg > 0 && val > colAvg
+                          return (
+                            <td key={k} className="text-right py-1.5 px-2 tabular-nums font-semibold"
+                              style={val === null ? { color: '#cbd5e1' } : above
+                                ? { color: matrixMetric.accent, background: matrixMetric.accent + '12' }
+                                : { color: '#1e293b' }}>
+                              {val !== null ? val.toLocaleString() : '—'}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    )
+                  })}
+                  {/* FP group header */}
                   <tr>
-                    <td colSpan={5} className="py-1 px-3 text-[10px] font-bold uppercase tracking-wider"
+                    <td colSpan={2 + filteredMatrixKeys.length} className="py-1 px-3 text-[10px] font-bold uppercase tracking-wider"
                       style={{ backgroundColor: '#6366f115', color: '#6366f1' }}>FP（DF / MF / FW）</td>
                   </tr>
-                  {matrixRows.filter(p => p.posGroup === 'FP').map(p => (
-                    <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                      <td className="py-1.5 px-3 sticky left-0 bg-white">
-                        <div className="flex items-center gap-1.5">
-                          <img src={p.photo} alt={p.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
-                            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                          <span className="font-medium text-slate-800 truncate">{p.name}</span>
-                        </div>
+                  {matrixPlayerRows.filter(p => POS_GROUPS.FP.includes(p.position)).map(pl => {
+                    const aggP = gpsAgg[matrixPeriod].find((a: any) => a.id === pl.id)
+                    return (
+                      <tr key={pl.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                        <td className="py-1.5 px-3 sticky left-0 bg-white z-10" style={{ whiteSpace: 'nowrap' }}>
+                          <div className="flex items-center gap-1.5">
+                            <img src={pl.photo} alt={pl.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                              onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                            <span className="font-medium text-slate-800">{pl.name}</span>
+                          </div>
+                        </td>
+                        <td className="text-center py-1.5 px-2" style={{ whiteSpace: 'nowrap' }}>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">{pl.position}</span>
+                        </td>
+                        {filteredMatrixKeys.map(k => {
+                          const d = aggP?.agg.find((a: any) => a.date === k) as any
+                          const val = d ? getVal(d, matrixMetricKey) : null
+                          const colAvg = matrixColGroupAvgs[k]?.FP ?? 0
+                          const above = val !== null && colAvg > 0 && val > colAvg
+                          return (
+                            <td key={k} className="text-right py-1.5 px-2 tabular-nums font-semibold"
+                              style={val === null ? { color: '#cbd5e1' } : above
+                                ? { color: matrixMetric.accent, background: matrixMetric.accent + '12' }
+                                : { color: '#1e293b' }}>
+                              {val !== null ? val.toLocaleString() : '—'}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    )
+                  })}
+                  {/* Column averages footer */}
+                  {(['GK', 'FP'] as DisplayPos[]).map(pos => (
+                    <tr key={`avg-${pos}`} style={{ backgroundColor: pos === 'GK' ? '#f59e0b08' : '#6366f108' }}>
+                      <td className="py-1 px-3 sticky left-0 z-10 text-[10px] font-bold"
+                        style={{ backgroundColor: pos === 'GK' ? '#f59e0b08' : '#6366f108', color: pos === 'GK' ? '#f59e0b' : '#6366f1', whiteSpace: 'nowrap' }}>
+                        {pos} 平均
                       </td>
-                      <td className="text-center py-1.5 px-2">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">{p.position}</span>
-                      </td>
-                      {MATRIX_PERIODS.map(({ key }) => {
-                        const v = p.vals[key]
-                        const above = p.aboves[key]
+                      <td />
+                      {filteredMatrixKeys.map(k => {
+                        const avg = matrixColGroupAvgs[k]?.[pos] ?? 0
                         return (
-                          <td key={key} className="text-right py-1.5 px-3 font-semibold tabular-nums"
-                            style={above ? { color: matrixMetric.accent, background: matrixMetric.accent + '12' } : { color: '#1e293b' }}>
-                            {v.toLocaleString()}
+                          <td key={k} className="text-right py-1 px-2 tabular-nums text-[10px] font-bold"
+                            style={{ color: pos === 'GK' ? '#f59e0b' : '#6366f1' }}>
+                            {avg > 0 ? Math.round(avg).toLocaleString() : '—'}
                           </td>
                         )
                       })}
@@ -879,22 +925,6 @@ export default function ComparisonView({ players, dataTab }: Props) {
               </table>
             </div>
           </div>
-
-          {/* FP/GK avg cards (for selected matrixPeriod) */}
-          {renderPosCards(matrixPosAvgs)}
-
-          {/* Rankings (for selected matrixPeriod) */}
-          <RankingPair
-            leftTitle={`総走行距離 ランキング（${MATRIX_PERIODS.find(p => p.key === matrixPeriod)?.label}）`}
-            leftRanking={matrixDistRank} leftUnit="m"
-            leftFpAvg={getGroupAvg(matrixDistRank, 'FP')} leftGkAvg={getGroupAvg(matrixDistRank, 'GK')}
-            rightTitle={`HSR（20km/h+）ランキング（${MATRIX_PERIODS.find(p => p.key === matrixPeriod)?.label}）`}
-            rightRanking={matrixHsrRank} rightUnit="m"
-            rightFpAvg={getGroupAvg(matrixHsrRank, 'FP')} rightGkAvg={getGroupAvg(matrixHsrRank, 'GK')}
-          />
-
-          {/* All-players GPS table */}
-          {renderGpsTable(gpsAgg[matrixPeriod], matrixPosAvgs)}
         </>
       )}
     </div>
