@@ -254,7 +254,7 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                   <button key={m} onClick={() => setSelectedSessionMonth(m)}
                     className="px-4 py-1.5 text-sm font-bold border transition-all"
                     style={isSel
-                      ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000', borderRadius: 3 }
+                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
                       : { color: '#aaa', borderColor: '#444', background: 'transparent', borderRadius: 3 }}>
                     {mNum}月
                   </button>
@@ -270,11 +270,9 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                   <button key={d} onClick={() => setSelectedSessionDate(d)}
                     className="px-2 py-0.5 text-[11px] font-semibold border transition-all flex items-center gap-0.5"
                     style={isSel
-                      ? isMatch
-                        ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000', borderRadius: 3 }
-                        : { color: '#fff', background: '#cc0000', borderColor: '#cc0000', borderRadius: 3 }
+                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
                       : isMatch
-                        ? { color: '#cc0000', borderColor: '#fca5a5', background: '#fff5f5', borderRadius: 3 }
+                        ? { color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5', borderRadius: 3 }
                         : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
                     {isMatch && <span style={{ fontSize: 9 }}>⚽</span>}
                     {dt.getDate()}
@@ -556,7 +554,7 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                     return (
                       <th key={m.key}
                         className="text-right py-2 px-1 font-bold leading-tight cursor-pointer select-none"
-                        style={{ color: active ? '#fff' : '#aaa', fontSize: 11, backgroundColor: active ? '#cc0000' : undefined }}
+                        style={{ color: active ? '#fff' : '#aaa', fontSize: 11, backgroundColor: active ? '#2563eb' : undefined }}
                         onClick={() => handleTableSort(m.key)}>
                         <div className="break-words hyphens-auto">{m.label}</div>
                         <div className="flex items-center justify-end gap-0.5 mt-0.5">
@@ -573,7 +571,7 @@ export default function ComparisonView({ players, period, dataTab }: Props) {
                     return (
                       <th key={z.key}
                         className="text-right py-2 px-1 font-bold leading-tight cursor-pointer select-none"
-                        style={{ color: active ? '#fff' : '#aaa', fontSize: 11, backgroundColor: active ? '#cc0000' : undefined }}
+                        style={{ color: active ? '#fff' : '#aaa', fontSize: 11, backgroundColor: active ? '#2563eb' : undefined }}
                         onClick={() => handleTableSort(z.key)}>
                         <div className="break-words">{z.label}</div>
                         <div className="flex items-center justify-end gap-0.5 mt-0.5">

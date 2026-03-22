@@ -131,7 +131,7 @@ function SessionSummary({ data }: { data: GpsData[] }) {
           <div>
             <p className="text-[10px] text-slate-400 mb-0.5">種別</p>
             {isMatch
-              ? <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#cc0000', borderRadius: 2 }}>⚽ 試合</span>
+              ? <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#2563eb', borderRadius: 2 }}>⚽ 試合</span>
               : <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#1a1a1a', borderRadius: 2 }}>🏃 練習</span>
             }
           </div>
@@ -174,9 +174,9 @@ function SessionSummary({ data }: { data: GpsData[] }) {
                 <button key={m} onClick={() => setSelectedMonths(prev => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n })}
                   className="px-4 py-1.5 text-sm font-bold border transition-all"
                   style={isSel
-                    ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000', borderRadius: 3 }
+                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
                     : hasCurrentSession
-                      ? { color: '#cc0000', background: '#fff0f0', borderColor: '#fca5a5', borderRadius: 3 }
+                      ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd', borderRadius: 3 }
                       : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
                   {monthNum}月
                 </button>
@@ -193,10 +193,10 @@ function SessionSummary({ data }: { data: GpsData[] }) {
                   className="flex items-center justify-center gap-0.5 py-0.5 text-[9px] font-medium border transition-all"
                   style={selected
                     ? match
-                      ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000', borderRadius: 3 }
-                      : { color: '#fff', background: '#cc0000', borderColor: '#cc0000', borderRadius: 3 }
+                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
+                      : { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 3 }
                     : match
-                      ? { color: '#cc0000', borderColor: '#fecaca', background: '#fff5f5', borderRadius: 3 }
+                      ? { color: '#2563eb', borderColor: '#fecaca', background: '#fff5f5', borderRadius: 3 }
                       : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 3 }}>
                   {match && <span style={{ fontSize: 9 }}>⚽</span>}
                   {d.date.slice(8)}
@@ -406,7 +406,7 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
             onClick={() => { setSelectedKeys(new Set()); setSelectedDailyMonths(new Set()) }}
             className="px-2 py-0.5 rounded text-[11px] font-semibold border transition-all"
             style={selectedKeys.size === 0
-              ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000' }
+              ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
               : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
             全期間
           </button>
@@ -441,7 +441,7 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
                     onClick={() => setSelectedDailyMonths(prev => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n })}
                     className="px-3 py-1.5 rounded-lg text-sm font-bold border transition-all"
                     style={isSel
-                      ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000' }
+                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
                       : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
                     {monthNum}月
                   </button>
@@ -470,9 +470,9 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
                       <button key={d} onClick={() => toggleKey(d)}
                         className="py-0.5 rounded text-[9px] font-medium border transition-all text-center leading-tight"
                         style={isSel
-                          ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000', fontWeight: 700 }
+                          ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', fontWeight: 700 }
                           : inRange
-                            ? { color: '#cc0000', background: '#fff0f0', borderColor: '#fca5a5' }
+                            ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
                             : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
                         {`${mNum}月${dayNum}日`}
                       </button>
@@ -494,9 +494,9 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
                 <button key={k} onClick={() => toggleKey(k)}
                   className="px-2 py-0.5 rounded text-[11px] font-semibold border transition-all"
                   style={isSel
-                    ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000' }
+                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
                     : inRange
-                      ? { color: '#cc0000', background: '#fff0f0', borderColor: '#fca5a5' }
+                      ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
                       : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
                   {fmt(k)}
                 </button>
@@ -515,9 +515,9 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
                 <button key={k} onClick={() => toggleKey(k)}
                   className="px-2 py-0.5 rounded text-[11px] font-semibold border transition-all"
                   style={isSel
-                    ? { color: '#fff', background: '#cc0000', borderColor: '#cc0000' }
+                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
                     : inRange
-                      ? { color: '#cc0000', background: '#fff0f0', borderColor: '#fca5a5' }
+                      ? { color: '#2563eb', background: '#eff6ff', borderColor: '#93c5fd' }
                       : { color: '#6b7280', borderColor: '#e2e8f0', background: 'transparent' }}>
                   {fmt(k)}
                 </button>

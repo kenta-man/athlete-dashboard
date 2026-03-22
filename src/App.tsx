@@ -34,7 +34,7 @@ export default function App() {
 
       {/* ── Header ── */}
       <header style={{ backgroundColor: DARK, borderBottom: `3px solid ${RED}` }} className="sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between" style={{ height: 52 }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center" style={{ height: 52 }}>
           {/* Logo */}
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded flex items-center justify-center" style={{ backgroundColor: RED }}>
@@ -44,25 +44,12 @@ export default function App() {
             </div>
             <span className="text-sm font-bold tracking-widest uppercase text-white">Athlete Analytics</span>
           </div>
-
-          {/* View mode */}
-          <div className="flex items-center gap-0" style={{ border: `1px solid #444`, borderRadius: 4, overflow: 'hidden' }}>
-            {(['individual', 'comparison'] as ViewMode[]).map(m => (
-              <button key={m} onClick={() => setViewMode(m)}
-                className="px-4 py-1.5 text-xs font-bold transition-all"
-                style={viewMode === m
-                  ? { backgroundColor: RED, color: '#fff' }
-                  : { backgroundColor: 'transparent', color: '#aaa' }}>
-                {m === 'individual' ? '個人' : 'チーム比較'}
-              </button>
-            ))}
-          </div>
         </div>
       </header>
 
       {/* ── Controls Bar ── */}
       <div style={{ backgroundColor: DARK2, borderBottom: `1px solid #3a3a3a` }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center gap-3">
           {/* Data tab */}
           <div className="flex items-center gap-1">
             {(['gps', 'conditioning'] as DataTab[]).map(tab => (
@@ -78,6 +65,21 @@ export default function App() {
 
           <div className="w-px h-5" style={{ backgroundColor: '#444' }} />
 
+          {/* View mode (個人 / チーム比較) */}
+          <div className="flex items-center gap-0" style={{ border: `1px solid #555`, borderRadius: 4, overflow: 'hidden' }}>
+            {(['individual', 'comparison'] as ViewMode[]).map(m => (
+              <button key={m} onClick={() => setViewMode(m)}
+                className="px-3 py-1.5 text-xs font-bold transition-all"
+                style={viewMode === m
+                  ? { backgroundColor: '#2563eb', color: '#fff' }
+                  : { backgroundColor: 'transparent', color: '#aaa' }}>
+                {m === 'individual' ? '個人' : 'チーム比較'}
+              </button>
+            ))}
+          </div>
+
+          <div className="w-px h-5" style={{ backgroundColor: '#444' }} />
+
           {/* Period */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium" style={{ color: '#888' }}>期間</span>
@@ -86,7 +88,7 @@ export default function App() {
                 <button key={p} onClick={() => setPeriod(p)}
                   className="px-3 py-1 rounded text-xs font-bold transition-all"
                   style={period === p
-                    ? { backgroundColor: RED, color: '#fff' }
+                    ? { backgroundColor: '#2563eb', color: '#fff' }
                     : { color: '#888', background: 'transparent' }}>
                   {PERIOD_LABELS[p]}
                 </button>
@@ -105,17 +107,17 @@ export default function App() {
               <button onClick={() => setPosFilter('ALL')}
                 className="px-2.5 py-1 rounded text-xs font-bold border transition-all"
                 style={posFilter === 'ALL'
-                  ? { color: '#fff', background: DARK, borderColor: DARK }
+                  ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
                   : { color: '#999', borderColor: '#e5e7eb', background: 'transparent' }}>
-                全員 <span style={{ opacity: 0.6 }}>({players.length})</span>
+                全員 <span style={{ opacity: 0.7 }}>({players.length})</span>
               </button>
               {['GK','DF','MF','FW'].map(pos => (
                 <button key={pos} onClick={() => setPosFilter(pos)}
                   className="px-2.5 py-1 rounded text-xs font-bold border transition-all"
                   style={posFilter === pos
-                    ? { color: '#fff', background: POSITION_COLORS[pos], borderColor: POSITION_COLORS[pos] }
+                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
                     : { color: '#999', borderColor: '#e5e7eb', background: 'transparent' }}>
-                  {pos} <span style={{ opacity: 0.6 }}>({posCounts[pos]})</span>
+                  {pos} <span style={{ opacity: 0.7 }}>({posCounts[pos]})</span>
                 </button>
               ))}
             </div>
@@ -123,20 +125,19 @@ export default function App() {
             {/* Player pills with photo */}
             <div className="flex gap-1.5 flex-wrap">
               {filteredPlayers.map(p => {
-                const color = POSITION_COLORS[p.position]
                 const isSelected = selectedPlayerId === p.id
                 return (
                   <button key={p.id} onClick={() => setSelectedPlayerId(p.id)}
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium border transition-all"
                     style={isSelected
-                      ? { color, background: color + '12', borderColor: color + '60', boxShadow: `0 0 0 2px ${color}20` }
+                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb' }
                       : { color: '#94a3b8', borderColor: '#e2e8f0', background: 'transparent' }}>
                     <img src={p.photo} alt={p.name}
                       className="w-5 h-5 rounded-full object-cover flex-shrink-0"
-                      style={isSelected ? { outline: `2px solid ${color}`, outlineOffset: 1 } : {}}
+                      style={isSelected ? { outline: '2px solid #93c5fd', outlineOffset: 1 } : {}}
                       onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                     <span>{p.name}</span>
-                    <span style={{ opacity: 0.6 }}>{p.position}</span>
+                    <span style={{ opacity: 0.7 }}>{p.position}</span>
                   </button>
                 )
               })}
