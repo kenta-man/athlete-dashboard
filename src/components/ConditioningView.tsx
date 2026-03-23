@@ -858,7 +858,7 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
           ))}
           {/* 選択済み項目ごとに個別グラフを表示 */}
           {selectedMetrics.size > 0 && (
-            <div className="grid grid-cols-2 gap-3 mt-1 pt-2 border-t border-slate-100">
+            <div className="col-span-2 grid grid-cols-2 gap-3 mt-1 pt-2 border-t border-slate-100">
               {[...selectedMetrics].map(mk => {
                 const def = flatMetrics.find(m => String(m.key) === mk)
                 if (!def) return null
