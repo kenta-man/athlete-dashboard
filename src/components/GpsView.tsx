@@ -22,7 +22,8 @@ const CHART = {
 }
 const AUTO_Y = { domain: ['auto' as const, 'auto' as const] }
 
-const ZONE_COLORS = ['#3b82f6','#10b981','#f59e0b','#f97316','#ef4444']
+const ZONE_COLORS     = ['#3b82f6','#10b981','#f59e0b','#f97316','#ef4444']
+const ZONE_COLORS_SPD = ['#cbd5e1','#94a3b8','#64748b','#f97316','#ef4444']
 
 interface KpiStats {
   totalDistance: number; hsr: number; hsrRatio: number; intensity: number
@@ -122,12 +123,22 @@ function SessionSummary({
   const isMatch = s.sessionType === 'match'
 
   const zones = [
-    { label: '0–7 km/h',   dist: s.dist_0_7,   pct: s.ratio_0_7,   count: null,          color: ZONE_COLORS[0] },
-    { label: '7–15 km/h',  dist: s.dist_7_15,  pct: s.ratio_7_15,  count: null,          color: ZONE_COLORS[1] },
-    { label: '15–20 km/h', dist: s.dist_15_20, pct: s.ratio_15_20, count: s.count_15_20, color: ZONE_COLORS[2] },
-    { label: '20–25 km/h', dist: s.dist_20_25, pct: s.ratio_20_25, count: s.count_20_25, color: ZONE_COLORS[3] },
-    { label: '25+ km/h',   dist: s.dist_25plus,pct: pct25plus,     count: s.count_25plus,color: ZONE_COLORS[4] },
+    { label: '0–7 km/h',   dist: s.dist_0_7,   pct: s.ratio_0_7,   count: null,          color: ZONE_COLORS_SPD[0] },
+    { label: '7–15 km/h',  dist: s.dist_7_15,  pct: s.ratio_7_15,  count: null,          color: ZONE_COLORS_SPD[1] },
+    { label: '15–20 km/h', dist: s.dist_15_20, pct: s.ratio_15_20, count: s.count_15_20, color: ZONE_COLORS_SPD[2] },
+    { label: '20–25 km/h', dist: s.dist_20_25, pct: s.ratio_20_25, count: s.count_20_25, color: ZONE_COLORS_SPD[3] },
+    { label: '25+ km/h',   dist: s.dist_25plus,pct: pct25plus,     count: s.count_25plus,color: ZONE_COLORS_SPD[4] },
   ]
+
+  // Recent 10 sessions for trend charts
+  const recent10 = useMemo(() =>
+    [...data].sort((a, b) => a.date.localeCompare(b.date)).slice(-10).map(d => ({
+      date: d.date.slice(5),
+      totalDistance: d.totalDistance,
+      hsr: d.dist_20_25 + d.dist_25plus,
+      isMatch: d.sessionType === 'match',
+    })),
+  [data])
 
   const DOW = ['日','月','火','水','木','金','土']
   const dow = DOW[new Date(s.date).getDay()]
@@ -244,75 +255,105 @@ function SessionSummary({
       {/* KPI Row */}
       <KpiRow stats={toKpiStats(s)} />
 
-      {/* Speed Zone */}
+      {/* Speed Zone + High-speed count (side by side) */}
       <Card title="速度帯分析">
-        <ResponsiveContainer width="100%" height={220}>
-          <ComposedChart data={zones.map(z => ({ label: z.label, dist: z.dist, pct: +z.pct.toFixed(1), color: z.color, count: z.count }))}>
-            <CartesianGrid {...CHART.grid} />
-            <XAxis dataKey="label" {...CHART.axis} />
-            <YAxis yAxisId="left" {...CHART.axis} unit="m" width={55} />
-            <YAxis yAxisId="right" orientation="right" {...CHART.axis} unit="%" domain={[0, 100]} width={38} />
-            <Tooltip
-              contentStyle={CHART.tooltip.contentStyle}
-              formatter={(val: unknown, name: unknown) => {
-                const v = val as number; const n = name as string
-                return n === '割合 (%)' ? [`${v}%`, n] : [`${v.toLocaleString()} m`, n]
-              }}
-            />
-            <Bar yAxisId="left" dataKey="dist" name="走行距離 (m)" radius={[3, 3, 0, 0]} maxBarSize={60}>
-              {zones.map(z => <Cell key={z.label} fill={z.color} />)}
-            </Bar>
-            <Line yAxisId="right" dataKey="pct" name="割合 (%)" type="monotone"
-              stroke="#1e293b" strokeWidth={2}
-              dot={({ cx, cy, index }: any) => (
-                <circle key={index} cx={cx} cy={cy} r={4} fill={zones[index]?.color ?? '#1e293b'} stroke="#fff" strokeWidth={1.5} />
-              )}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
+        <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {/* Left: bar+line chart */}
+          <ResponsiveContainer width="100%" height={220}>
+            <ComposedChart
+              data={zones.map(z => ({ label: z.label, dist: z.dist, pct: +z.pct.toFixed(1), color: z.color }))}
+              barCategoryGap="8%"
+            >
+              <CartesianGrid {...CHART.grid} />
+              <XAxis dataKey="label" {...CHART.axis} tick={{ fill: '#374151', fontSize: 10 }} />
+              <YAxis yAxisId="left" {...CHART.axis} unit="m" width={55} />
+              <YAxis yAxisId="right" orientation="right" {...CHART.axis} unit="%" domain={[0, 100]} width={38} />
+              <Tooltip
+                contentStyle={CHART.tooltip.contentStyle}
+                formatter={(val: unknown, name: unknown) => {
+                  const v = val as number; const n = name as string
+                  return n === '割合 (%)' ? [`${v}%`, n] : [`${v.toLocaleString()} m`, n]
+                }}
+              />
+              <Bar yAxisId="left" dataKey="dist" name="走行距離 (m)" radius={[3, 3, 0, 0]} maxBarSize={48}>
+                {zones.map(z => <Cell key={z.label} fill={z.color} />)}
+              </Bar>
+              <Line yAxisId="right" dataKey="pct" name="割合 (%)" type="monotone"
+                stroke="#1e293b" strokeWidth={2}
+                dot={({ cx, cy, index }: any) => (
+                  <circle key={index} cx={cx} cy={cy} r={4} fill={zones[index]?.color ?? '#1e293b'} stroke="#fff" strokeWidth={1.5} />
+                )}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+
+          {/* Right: high-speed count table */}
+          <div className="flex flex-col justify-center gap-3 pl-4 border-l border-slate-100">
+            <p className="text-xs font-bold text-slate-600 mb-1">高速走行回数</p>
+            {[
+              { label: '15–20 km/h', value: s.count_15_20, color: ZONE_COLORS_SPD[2] },
+              { label: '20–25 km/h', value: s.count_20_25, color: ZONE_COLORS_SPD[3] },
+              { label: '25+ km/h',   value: s.count_25plus, color: ZONE_COLORS_SPD[4] },
+            ].map(k => (
+              <div key={k.label} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.color }} />
+                  <span className="text-xs text-slate-600">{k.label}</span>
+                </div>
+                <span className="text-xl font-bold text-slate-900 tabular-nums">
+                  {k.value}<span className="text-xs font-normal text-slate-400 ml-0.5">回</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Acceleration/Deceleration */}
-        <Card title="加減速">
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { label: '加速 3m/s²', value: s.accel_3ms2, color: '#f97316' },
-              { label: '減速 3m/s²', value: s.decel_3ms2, color: '#ef4444' },
-              { label: '加速 2m/s³', value: s.accel_2ms3, color: '#f59e0b' },
-              { label: '減速 2m/s³', value: s.decel_2ms3, color: '#f87171' },
-            ].map(k => (
-              <div key={k.label} className="rounded-xl p-3 border border-slate-100 bg-slate-50 text-center">
-                <div className="flex items-center justify-center gap-1 mb-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.color }} />
-                  <p className="text-xs text-slate-600 leading-tight">{k.label}</p>
-                </div>
-                <p className="text-2xl font-bold text-slate-900">
-                  {k.value}<span className="text-xs font-normal text-slate-500 ml-0.5">回</span>
-                </p>
+      {/* Acceleration/Deceleration */}
+      <Card title="加減速">
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { label: '加速 3m/s²', value: s.accel_3ms2, color: '#f97316' },
+            { label: '減速 3m/s²', value: s.decel_3ms2, color: '#ef4444' },
+            { label: '加速 2m/s³', value: s.accel_2ms3, color: '#f59e0b' },
+            { label: '減速 2m/s³', value: s.decel_2ms3, color: '#f87171' },
+          ].map(k => (
+            <div key={k.label} className="rounded-xl p-3 border border-slate-100 bg-slate-50 text-center">
+              <div className="flex items-center justify-center gap-1 mb-1.5">
+                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.color }} />
+                <p className="text-xs text-slate-600 leading-tight">{k.label}</p>
               </div>
-            ))}
-          </div>
-        </Card>
+              <p className="text-2xl font-bold text-slate-900">
+                {k.value}<span className="text-xs font-normal text-slate-500 ml-0.5">回</span>
+              </p>
+            </div>
+          ))}
+        </div>
+      </Card>
 
-        {/* High-speed count */}
-        <Card title="高速走行回数">
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: '15–20 km/h', value: s.count_15_20, color: ZONE_COLORS[2] },
-              { label: '20–25 km/h', value: s.count_20_25, color: ZONE_COLORS[3] },
-              { label: '25+ km/h',   value: s.count_25plus,color: ZONE_COLORS[4] },
-            ].map(k => (
-              <div key={k.label} className="rounded-xl p-4 text-center border border-slate-100 bg-slate-50">
-                <div className="flex items-center justify-center gap-1 mb-2">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: k.color }} />
-                  <p className="text-xs font-medium text-slate-600">{k.label}</p>
-                </div>
-                <p className="text-3xl font-bold text-slate-900">{k.value}</p>
-                <p className="text-xs text-slate-400 mt-1">回</p>
-              </div>
-            ))}
-          </div>
+      {/* Recent 10 sessions trend */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card title="直近10回 総走行距離の推移">
+          <ResponsiveContainer width="100%" height={180}>
+            <LineChart data={recent10}>
+              <CartesianGrid {...CHART.grid} />
+              <XAxis dataKey="date" {...CHART.axis} />
+              <YAxis {...CHART.axis} unit="m" width={55} {...AUTO_Y} />
+              <Tooltip contentStyle={CHART.tooltip.contentStyle} formatter={(v: unknown) => [`${(v as number).toLocaleString()} m`, '総走行距離']} />
+              <Line dataKey="totalDistance" name="総走行距離" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: '#3b82f6' }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+        <Card title="直近10回 HSRの推移">
+          <ResponsiveContainer width="100%" height={180}>
+            <LineChart data={recent10}>
+              <CartesianGrid {...CHART.grid} />
+              <XAxis dataKey="date" {...CHART.axis} />
+              <YAxis {...CHART.axis} unit="m" width={55} {...AUTO_Y} />
+              <Tooltip contentStyle={CHART.tooltip.contentStyle} formatter={(v: unknown) => [`${(v as number).toLocaleString()} m`, 'HSR（20km/h+）']} />
+              <Line dataKey="hsr" name="HSR" stroke="#ef4444" strokeWidth={2} dot={{ r: 3, fill: '#ef4444' }} />
+            </LineChart>
+          </ResponsiveContainer>
         </Card>
       </div>
     </div>
