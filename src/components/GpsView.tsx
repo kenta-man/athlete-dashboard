@@ -312,9 +312,9 @@ function SessionSummary({
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">加減速</p>
             {[
               { label: '加速 3m/s²', value: s.accel_3ms2, color: '#f97316' },
-              { label: '減速 3m/s²', value: s.decel_3ms2, color: '#ef4444' },
               { label: '加速 2m/s³', value: s.accel_2ms3, color: '#f59e0b' },
-              { label: '減速 2m/s³', value: s.decel_2ms3, color: '#f87171' },
+              { label: '減速 3m/s²', value: s.decel_3ms2, color: '#3b82f6' },
+              { label: '減速 2m/s³', value: s.decel_2ms3, color: '#93c5fd' },
             ].map(k => (
               <div key={k.label} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
                 <div className="flex items-center gap-1.5">
