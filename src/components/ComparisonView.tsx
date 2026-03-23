@@ -234,7 +234,7 @@ function RankingPair({
           <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>{leftTitle}</h3>
         </div>
         {legendRow(leftFpAvg, leftGkAvg, leftUnit)}
-        <div className="space-y-1 max-h-80 overflow-y-auto pr-1 px-5 pb-4" style={{ scrollbarWidth: 'none' }}>
+        <div className="space-y-1 pr-1 px-5 pb-4">
           {renderRank(leftRanking, leftUnit, leftFpAvg, leftGkAvg)}
         </div>
       </div>
@@ -243,7 +243,7 @@ function RankingPair({
           <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fff' }}>{rightTitle}</h3>
         </div>
         {legendRow(rightFpAvg, rightGkAvg, rightUnit)}
-        <div className="space-y-1 max-h-80 overflow-y-auto pr-1 px-5 pb-4" style={{ scrollbarWidth: 'none' }}>
+        <div className="space-y-1 pr-1 px-5 pb-4">
           {renderRank(rightRanking, rightUnit, rightFpAvg, rightGkAvg)}
         </div>
       </div>
@@ -257,6 +257,11 @@ function SessionDaySummary({ aggPlayers, selectedDate }: { aggPlayers: any[]; se
     const session = p.agg.find((d: any) => d.date === selectedDate) as any
     return { ...p, session }
   }).filter((p: any) => p.session)
+    .sort((a: any, b: any) => {
+      // スタメン → 途中出場 → isStarter未定義(練習) の順
+      const order = (s: any) => s.isStarter === true ? 0 : s.isStarter === false ? 1 : 2
+      return order(a.session) - order(b.session)
+    })
 
   if (playersOnDate.length === 0) return null
   return (
@@ -273,9 +278,24 @@ function SessionDaySummary({ aggPlayers, selectedDate }: { aggPlayers: any[]; se
                 <img src={p.photo} alt={p.name}
                   className="w-6 h-6 rounded-full object-cover border border-slate-200 flex-shrink-0"
                   onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                <div className="min-w-0">
-                  <p className="text-xs font-bold truncate text-slate-800">{p.name}</p>
-                  <span className="text-[8px] font-bold px-1 py-0.5" style={{ background: '#1a1a1a', color: '#fff', borderRadius: 2 }}>{p.position}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <p className="text-xs font-bold truncate text-slate-800">{p.name}</p>
+                    {s.isStarter === true && (
+                      <span className="text-[8px] font-bold px-1 py-0.5 flex-shrink-0"
+                        style={{ background: '#2563eb', color: '#fff', borderRadius: 2 }}>スタメン</span>
+                    )}
+                    {s.isStarter === false && (
+                      <span className="text-[8px] font-bold px-1 py-0.5 flex-shrink-0"
+                        style={{ background: '#64748b', color: '#fff', borderRadius: 2 }}>途中出場</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-[8px] font-bold px-1 py-0.5" style={{ background: '#1a1a1a', color: '#fff', borderRadius: 2 }}>{p.position}</span>
+                    {s.running != null && s.running > 0 && (
+                      <span className="text-[9px] text-slate-500 font-medium">{s.running}分</span>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="space-y-0.5">
