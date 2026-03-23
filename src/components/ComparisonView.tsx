@@ -1047,6 +1047,12 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
                     : <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5" style={{ color: '#fff', background: '#1a1a1a', borderRadius: 2 }}>🏃 練習</span>
                   }
                 </div>
+                {!sessionIsMatch && sessionPlayersOnDate.length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-slate-400">TR参加人数</p>
+                    <p className="text-xs font-bold text-slate-800">{sessionPlayersOnDate.length} 人</p>
+                  </div>
+                )}
                 {sessionIsMatch && sessionOpponent && (
                   <>
                     <div>

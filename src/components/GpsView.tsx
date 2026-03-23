@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  BarChart, Bar, Cell, LineChart, Line, ComposedChart,
+  XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer,
 } from 'recharts'
 import type { GpsData, Player } from '../data/sampleData'
@@ -245,26 +246,30 @@ function SessionSummary({
 
       {/* Speed Zone */}
       <Card title="速度帯分析">
-        <div className="flex h-8 rounded-lg overflow-hidden mb-4">
-          {zones.map(z => (
-            <div key={z.label} style={{ width: `${z.pct}%`, backgroundColor: z.color, opacity: 0.85, transition: 'width 0.4s ease' }} />
-          ))}
-        </div>
-        <div className="grid grid-cols-5 gap-2">
-          {zones.map(z => (
-            <div key={z.label} className="rounded-xl p-3 text-center border"
-              style={{ borderColor: z.color + '30', background: z.color + '06' }}>
-              <div className="text-xs font-semibold mb-2" style={{ color: z.color }}>{z.label}</div>
-              <div className="flex items-baseline justify-center gap-2">
-                <span className="text-base font-bold text-slate-800">{z.dist.toLocaleString()}<span className="text-xs font-normal text-slate-400 ml-0.5">m</span></span>
-                <span className="text-sm font-bold" style={{ color: z.color }}>{z.pct.toFixed(1)}%</span>
-              </div>
-              {z.count !== null && (
-                <div className="text-xs text-slate-500 mt-1">{z.count} 回</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <ComposedChart data={zones.map(z => ({ label: z.label, dist: z.dist, pct: +z.pct.toFixed(1), color: z.color, count: z.count }))}>
+            <CartesianGrid {...CHART.grid} />
+            <XAxis dataKey="label" {...CHART.axis} />
+            <YAxis yAxisId="left" {...CHART.axis} unit="m" width={55} />
+            <YAxis yAxisId="right" orientation="right" {...CHART.axis} unit="%" domain={[0, 100]} width={38} />
+            <Tooltip
+              contentStyle={CHART.tooltip.contentStyle}
+              formatter={(val: unknown, name: unknown) => {
+                const v = val as number; const n = name as string
+                return n === '割合 (%)' ? [`${v}%`, n] : [`${v.toLocaleString()} m`, n]
+              }}
+            />
+            <Bar yAxisId="left" dataKey="dist" name="走行距離 (m)" radius={[3, 3, 0, 0]} maxBarSize={60}>
+              {zones.map(z => <Cell key={z.label} fill={z.color} />)}
+            </Bar>
+            <Line yAxisId="right" dataKey="pct" name="割合 (%)" type="monotone"
+              stroke="#1e293b" strokeWidth={2}
+              dot={({ cx, cy, index }: any) => (
+                <circle key={index} cx={cx} cy={cy} r={4} fill={zones[index]?.color ?? '#1e293b'} stroke="#fff" strokeWidth={1.5} />
               )}
-            </div>
-          ))}
-        </div>
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
