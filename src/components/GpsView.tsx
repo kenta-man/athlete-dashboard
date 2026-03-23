@@ -88,17 +88,32 @@ function KpiRow({ stats, label, period }: { stats: KpiStats; label?: string; per
 }
 
 // ─── Session Summary ─────────────────────────────────────────────────────────
-function SessionSummary({ data }: { data: GpsData[] }) {
-  const [idx, setIdx] = useState(Math.max(0, data.length - 1))
+function SessionSummary({
+  data, selectedDate, onSelectDate,
+}: { data: GpsData[]; selectedDate: string; onSelectDate: (d: string) => void }) {
 
-  const months = [...new Set(data.map(d => d.date.slice(0, 7)))].sort()
-  const lastMonth = data.length > 0 ? data[data.length - 1].date.slice(0, 7) : ''
-  const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set(lastMonth ? [lastMonth] : []))
-  const monthSessions = data.map((d, i) => ({ ...d, idx: i })).filter(d =>
-    selectedMonths.size === 0 || [...selectedMonths].some(m => d.date.startsWith(m))
+  // Derive active session from selectedDate (fall back to last entry)
+  const s = useMemo(() => {
+    return data.find(d => d.date === selectedDate) ?? data[data.length - 1]
+  }, [data, selectedDate])
+
+  const months = useMemo(() => [...new Set(data.map(d => d.date.slice(0, 7)))].sort(), [data])
+
+  // Keep selected months in sync: always show the month of the active session
+  const activeMonth = s?.date.slice(0, 7) ?? ''
+  const [selectedMonths, setSelectedMonths] = useState<Set<string>>(
+    new Set(activeMonth ? [activeMonth] : [])
+  )
+  // When active session's month changes (e.g. player switch), ensure that month is visible
+  useEffect(() => {
+    if (activeMonth) setSelectedMonths(prev => new Set([...prev, activeMonth]))
+  }, [activeMonth])
+
+  const monthSessions = useMemo(() =>
+    data.filter(d => selectedMonths.size === 0 || [...selectedMonths].some(m => d.date.startsWith(m))),
+    [data, selectedMonths]
   )
 
-  const s = data[idx] ?? data[0]
   if (!s) return (
     <div className="flex items-center justify-center py-16 text-slate-400 text-sm">データがありません</div>
   )
@@ -179,7 +194,7 @@ function SessionSummary({ data }: { data: GpsData[] }) {
               {months.map(m => {
                 const monthNum = parseInt(m.slice(5))
                 const isSel = selectedMonths.has(m)
-                const hasCurrentSession = data[idx].date.startsWith(m)
+                const hasCurrentSession = s.date.startsWith(m)
                 return (
                   <button key={m} onClick={() => setSelectedMonths(prev => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n })}
                     className="px-5 py-2 text-base font-bold border transition-all"
@@ -197,9 +212,9 @@ function SessionSummary({ data }: { data: GpsData[] }) {
             <div className="grid grid-cols-7 gap-1 overflow-y-auto flex-1" style={{ maxHeight: 120, scrollbarWidth: 'none' }}>
               {monthSessions.map(d => {
                 const match    = d.sessionType === 'match'
-                const selected = idx === d.idx
+                const selected = selectedDate === d.date
                 return (
-                  <button key={d.date} onClick={() => setIdx(d.idx)}
+                  <button key={d.date} onClick={() => onSelectDate(d.date)}
                     className="flex items-center justify-center gap-0.5 py-1 text-xs font-semibold border transition-all leading-none"
                     style={selected
                       ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
@@ -667,10 +682,33 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
   )
 }
 
+// ─── nearest date helper ─────────────────────────────────────────────────────
+function nearestDate(dates: string[], target: string): string {
+  if (!target) return dates[dates.length - 1]
+  return dates.reduce((best, d) => {
+    const dDiff = Math.abs(new Date(d).getTime() - new Date(target).getTime())
+    const bDiff = Math.abs(new Date(best).getTime() - new Date(target).getTime())
+    return dDiff < bDiff ? d : best
+  })
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 export default function GpsView({ rawData }: Props) {
   const [period, setPeriod] = useState<Period>('session')
   const data = useMemo(() => aggregateGpsData(rawData, period), [rawData, period])
+
+  // selectedDate is shared between session/trend; persists across player switches
+  const [selectedDate, setSelectedDate] = useState<string>(
+    rawData.length > 0 ? rawData[rawData.length - 1].date : ''
+  )
+
+  // When rawData changes (player switch), snap to nearest available date
+  useEffect(() => {
+    if (rawData.length === 0) return
+    const dates = rawData.map(d => d.date)
+    const snapped = dates.includes(selectedDate) ? selectedDate : nearestDate(dates, selectedDate)
+    setSelectedDate(snapped)
+  }, [rawData]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!rawData || rawData.length === 0) {
     return (
@@ -703,7 +741,7 @@ export default function GpsView({ rawData }: Props) {
       </div>
 
       {period === 'session'
-        ? <SessionSummary data={data} />
+        ? <SessionSummary data={data} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
         : <TrendView data={data} period={period} />}
     </div>
   )
