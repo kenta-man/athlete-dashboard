@@ -196,7 +196,7 @@ function SessionSummary({
                 const isSel = selectedMonths.has(m)
                 const hasCurrentSession = s.date.startsWith(m)
                 return (
-                  <button key={m} onClick={() => setSelectedMonths(prev => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n })}
+                  <button key={m} onClick={() => setSelectedMonths(new Set([m]))}
                     className="px-5 py-2 text-base font-bold border transition-all"
                     style={isSel
                       ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }

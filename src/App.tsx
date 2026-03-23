@@ -65,7 +65,7 @@ export default function App() {
           {/* View mode (個人 / チーム比較) */}
           <div className="flex items-center gap-0" style={{ border: `1px solid #555`, borderRadius: 4, overflow: 'hidden' }}>
             {(['individual', 'comparison'] as ViewMode[]).map(m => (
-              <button key={m} onClick={() => setViewMode(m)}
+              <button key={m} onClick={() => { setViewMode(m); if (m === 'comparison') setCompView('session') }}
                 className="px-3 py-1.5 text-xs font-bold transition-all"
                 style={viewMode === m
                   ? { backgroundColor: '#2563eb', color: '#fff' }
