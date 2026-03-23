@@ -335,6 +335,8 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
   const [gpsMetricSelectorOpen, setGpsMetricSelectorOpen] = useState(true)
   const [gpsPeriodOpen, setGpsPeriodOpen] = useState(true)
   const [condMetricSelectorOpen, setCondMetricSelectorOpen] = useState(true)
+  const [condAllGroupsOpen, setCondAllGroupsOpen] = useState(false)
+  const [condExpandedGroups, setCondExpandedGroups] = useState<Set<string>>(new Set())
   const [condPeriodOpen, setCondPeriodOpen] = useState(true)
   /* ── GPS matrix range state ── */
   const [matrixRangeStart, setMatrixRangeStart] = useState<string>('')
@@ -777,23 +779,70 @@ export default function ComparisonView({ players, dataTab, compView = 'matrix' }
             onClick={() => setCondMetricSelectorOpen(o => !o)}>
             <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>項目選択</span>
             <span className="text-xs font-bold ml-2" style={{ color: '#60a5fa' }}>
-              {COND_KPI_METRICS.find(m => m.key === condMatrixMetricKey)?.label ?? ''}
+              {COND_FLAT_METRICS.find(m => m.key === condMatrixMetricKey)?.label ?? ''}
             </span>
             <span className="ml-auto text-[10px]" style={{ color: '#666' }}>{condMetricSelectorOpen ? '▲' : '▼'}</span>
           </button>
           {condMetricSelectorOpen && (
-            <div className="p-3 flex flex-wrap gap-2">
-              {COND_KPI_METRICS.map(m => (
-                <button key={m.key}
-                  onClick={() => setCondMatrixMetricKey(m.key)}
-                  className="px-3 py-1.5 text-xs font-medium border transition-all"
-                  style={condMatrixMetricKey === m.key
-                    ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
-                    : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
-                  {m.label}
+            <>
+              {/* KPI metrics (always visible when selector open) */}
+              <div className="p-3 flex flex-wrap gap-2">
+                {COND_KPI_METRICS.map(m => (
+                  <button key={m.key}
+                    onClick={() => setCondMatrixMetricKey(m.key)}
+                    className="px-3 py-1.5 text-xs font-medium border transition-all"
+                    style={condMatrixMetricKey === m.key
+                      ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
+                      : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Extended all-groups section — collapsed by default */}
+              <div className="border-t border-slate-200">
+                <button
+                  className="w-full px-4 py-1.5 flex items-center gap-2 text-left"
+                  style={{ backgroundColor: '#2a2a2a' }}
+                  onClick={() => setCondAllGroupsOpen(o => !o)}>
+                  <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#aaa' }}>全項目</span>
+                  <span className="ml-auto text-[10px]" style={{ color: '#666' }}>{condAllGroupsOpen ? '▲' : '▼'}</span>
                 </button>
-              ))}
-            </div>
+                {condAllGroupsOpen && (
+                  <div className="p-3 space-y-2">
+                    {COND_ALL_GROUPS.map(group => (
+                      <div key={group.title}>
+                        <button
+                          className="flex items-center gap-1.5 mb-1 w-full text-left"
+                          onClick={() => setCondExpandedGroups(prev => {
+                            const next = new Set(prev)
+                            next.has(group.title) ? next.delete(group.title) : next.add(group.title)
+                            return next
+                          })}>
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
+                          <span className="text-[11px] font-semibold" style={{ color: '#374151' }}>{group.title}</span>
+                          <span className="ml-auto text-[10px]" style={{ color: '#999' }}>{condExpandedGroups.has(group.title) ? '▲' : '▼'}</span>
+                        </button>
+                        {condExpandedGroups.has(group.title) && (
+                          <div className="flex flex-wrap gap-1.5 pl-3">
+                            {group.metrics.map(m => (
+                              <button key={m.key}
+                                onClick={() => setCondMatrixMetricKey(m.key)}
+                                className="px-3 py-1.5 text-xs font-medium border transition-all"
+                                style={condMatrixMetricKey === m.key
+                                  ? { color: '#fff', background: '#2563eb', borderColor: '#2563eb', borderRadius: 4 }
+                                  : { color: '#374151', borderColor: '#e2e8f0', background: 'transparent', borderRadius: 4 }}>
+                                {m.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
 
