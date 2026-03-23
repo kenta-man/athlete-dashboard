@@ -255,9 +255,9 @@ function SessionSummary({
       {/* KPI Row */}
       <KpiRow stats={toKpiStats(s)} />
 
-      {/* Speed Zone + High-speed count (side by side) */}
+      {/* Speed Zone + High-speed count + 加減速 (3-column) */}
       <Card title="速度帯分析">
-        <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 160px 180px' }}>
           {/* Left: bar+line chart */}
           <ResponsiveContainer width="100%" height={220}>
             <ComposedChart
@@ -287,47 +287,46 @@ function SessionSummary({
             </ComposedChart>
           </ResponsiveContainer>
 
-          {/* Right: high-speed count table */}
-          <div className="flex flex-col justify-center gap-3 pl-4 border-l border-slate-100">
-            <p className="text-xs font-bold text-slate-600 mb-1">高速走行回数</p>
+          {/* Center: high-speed count */}
+          <div className="flex flex-col justify-center gap-0 pl-4 border-l border-slate-100">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">高速走行回数</p>
             {[
               { label: '15–20 km/h', value: s.count_15_20, color: ZONE_COLORS_SPD[2] },
               { label: '20–25 km/h', value: s.count_20_25, color: ZONE_COLORS_SPD[3] },
               { label: '25+ km/h',   value: s.count_25plus, color: ZONE_COLORS_SPD[4] },
             ].map(k => (
               <div key={k.label} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.color }} />
-                  <span className="text-xs text-slate-600">{k.label}</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: k.color }} />
+                  <span className="text-[11px] text-slate-600">{k.label}</span>
                 </div>
-                <span className="text-xl font-bold text-slate-900 tabular-nums">
-                  {k.value}<span className="text-xs font-normal text-slate-400 ml-0.5">回</span>
+                <span className="text-base font-bold text-slate-900 tabular-nums ml-2">
+                  {k.value}<span className="text-[10px] font-normal text-slate-400 ml-0.5">回</span>
                 </span>
               </div>
             ))}
           </div>
-        </div>
-      </Card>
 
-      {/* Acceleration/Deceleration */}
-      <Card title="加減速">
-        <div className="grid grid-cols-4 gap-2">
-          {[
-            { label: '加速 3m/s²', value: s.accel_3ms2, color: '#f97316' },
-            { label: '減速 3m/s²', value: s.decel_3ms2, color: '#ef4444' },
-            { label: '加速 2m/s³', value: s.accel_2ms3, color: '#f59e0b' },
-            { label: '減速 2m/s³', value: s.decel_2ms3, color: '#f87171' },
-          ].map(k => (
-            <div key={k.label} className="rounded-xl p-3 border border-slate-100 bg-slate-50 text-center">
-              <div className="flex items-center justify-center gap-1 mb-1.5">
-                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.color }} />
-                <p className="text-xs text-slate-600 leading-tight">{k.label}</p>
+          {/* Right: 加減速 vertical */}
+          <div className="flex flex-col justify-center gap-0 pl-4 border-l border-slate-100">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">加減速</p>
+            {[
+              { label: '加速 3m/s²', value: s.accel_3ms2, color: '#f97316' },
+              { label: '減速 3m/s²', value: s.decel_3ms2, color: '#ef4444' },
+              { label: '加速 2m/s³', value: s.accel_2ms3, color: '#f59e0b' },
+              { label: '減速 2m/s³', value: s.decel_2ms3, color: '#f87171' },
+            ].map(k => (
+              <div key={k.label} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: k.color }} />
+                  <span className="text-[11px] text-slate-600">{k.label}</span>
+                </div>
+                <span className="text-base font-bold text-slate-900 tabular-nums ml-2">
+                  {k.value}<span className="text-[10px] font-normal text-slate-400 ml-0.5">回</span>
+                </span>
               </div>
-              <p className="text-2xl font-bold text-slate-900">
-                {k.value}<span className="text-xs font-normal text-slate-500 ml-0.5">回</span>
-              </p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </Card>
 
