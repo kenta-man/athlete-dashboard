@@ -826,7 +826,7 @@ function TrendView({ data, period, player }: { data: ConditioningData[]; period:
             </button>
           )}
         </div>
-        <div className="p-3 space-y-2.5">
+        <div className="p-3 grid grid-cols-2 gap-x-6 gap-y-2.5">
           {allMetricGroups.map(group => (
             <div key={group.title}>
               <div className="flex items-center gap-1.5 mb-1">
