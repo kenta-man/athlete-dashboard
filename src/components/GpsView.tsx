@@ -89,15 +89,19 @@ function KpiRow({ stats, label, period }: { stats: KpiStats; label?: string; per
 
 // ─── Session Summary ─────────────────────────────────────────────────────────
 function SessionSummary({ data }: { data: GpsData[] }) {
-  const [idx, setIdx] = useState(data.length - 1)
+  const [idx, setIdx] = useState(Math.max(0, data.length - 1))
 
   const months = [...new Set(data.map(d => d.date.slice(0, 7)))].sort()
-  const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set([data[data.length - 1].date.slice(0, 7)]))
+  const lastMonth = data.length > 0 ? data[data.length - 1].date.slice(0, 7) : ''
+  const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set(lastMonth ? [lastMonth] : []))
   const monthSessions = data.map((d, i) => ({ ...d, idx: i })).filter(d =>
     selectedMonths.size === 0 || [...selectedMonths].some(m => d.date.startsWith(m))
   )
 
-  const s = data[idx]
+  const s = data[idx] ?? data[0]
+  if (!s) return (
+    <div className="flex items-center justify-center py-16 text-slate-400 text-sm">データがありません</div>
+  )
   const pct25plus = +(100 - s.ratio_0_7 - s.ratio_7_15 - s.ratio_15_20 - s.ratio_20_25).toFixed(1)
   const isMatch = s.sessionType === 'match'
 
@@ -297,6 +301,11 @@ function SessionSummary({ data }: { data: GpsData[] }) {
 
 // ─── Trend View ──────────────────────────────────────────────────────────────
 function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
+  if (data.length === 0) return (
+    <div className="flex items-center justify-center py-16 text-slate-400 text-sm">
+      この期間のデータがありません
+    </div>
+  )
   const fmt = (k: string) => formatPeriodLabel(k, period)
   const allKeys = useMemo(() => data.map(d => d.date), [data])
 
@@ -662,6 +671,19 @@ function TrendView({ data, period }: { data: GpsData[]; period: Period }) {
 export default function GpsView({ rawData }: Props) {
   const [period, setPeriod] = useState<Period>('session')
   const data = useMemo(() => aggregateGpsData(rawData, period), [rawData, period])
+
+  if (!rawData || rawData.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 8v4m0 4h.01" strokeLinecap="round" />
+        </svg>
+        <p className="text-sm font-medium">GPSデータがありません</p>
+        <p className="text-xs text-slate-300">この選手のGPSデータは登録されていません</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
